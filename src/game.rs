@@ -618,7 +618,7 @@ mod test {
                         return Some(*idx);
                     }
                 }
-                return None;
+                None
             })
             .expect("card to start not found!");
 
