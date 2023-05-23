@@ -448,7 +448,10 @@ impl Game {
                 }
             }
 
-            let Some((min_idx, min_card)) = min_card else {unreachable!("should still not happen bro, bcos trust me. if it happens, then probably deck not well shuffled")};
+            let Some((min_idx, min_card)) = min_card else {
+                unreachable!("should still not happen bro, bcos trust me. if it happens,
+                              then probably deck not well shuffled")
+            };
             self.play(min_idx)
         } else {
             Err(GameError::StateError)
@@ -530,13 +533,15 @@ impl Game {
 
     pub fn play(&mut self, card_to_play_idx: usize) -> Result<(), GameError> {
         let card_to_play_idx = self.validate_play(card_to_play_idx)?;
-        let GameState::PlayingHand { stack, current_scores } = &mut self.state else {unreachable!("already validated")};
+        let GameState::PlayingHand { stack, current_scores } = &mut self.state else {
+            unreachable!("already validated")};
         let player = self.players.get_mut(self.current_player_pos).unwrap();
         let card_to_play = &DECK.0[card_to_play_idx];
         let card_to_play_type = card_to_play.get_type();
 
         // we're done with the checks
-        let Some(empty_slot) = stack.iter_mut().find(|s| s.is_none()) else {return Err(GameError::ForbiddenMove)};
+        let Some(empty_slot) = stack.iter_mut().find(|s| s.is_none()) else {
+            return Err(GameError::ForbiddenMove)};
         *empty_slot = Some((self.current_player_pos, card_to_play_idx));
         // update current player position
         if self.current_player_pos == PLAYER_NUMBER - 1 {
@@ -577,7 +582,7 @@ impl Game {
             self.current_player_pos = *max_card.0;
             current_scores[self.current_player_pos] += score;
             for s in stack.iter_mut() {
-                let Some(empty_slot) =  self.back_in_deck.iter_mut().find(|s| s.is_none()) else {unreachable!()};
+                let Some(empty_slot) = self.back_in_deck.iter_mut().find(|s| s.is_none()) else {unreachable!()};
                 empty_slot.replace(s.take().map(|(_, c)| c).unwrap());
             }
             if self.back_in_deck.iter().filter(|s| s.is_some()).count() == DECK_SIZE {
@@ -600,12 +605,14 @@ impl Game {
         } = &self.state
         {
             println!(
-                "Player order: {:?}",
-                stack.map(|c| if let Some((pl_idx, _)) = c {
-                    format!("{}", pl_idx + 1)
-                } else {
-                    "-".into()
-                })
+                "Player order:  {}",
+                stack
+                    .map(|c| if let Some((pl_idx, _)) = c {
+                        format!("{}", pl_idx + 1)
+                    } else {
+                        "-".into()
+                    })
+                    .join(" ")
             );
             println!(
                 "Current stack: {}",
