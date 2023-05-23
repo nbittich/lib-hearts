@@ -428,9 +428,9 @@ impl Game {
                             let min_card_type = min_card.get_type();
                             let card_type = card.get_type();
                             if min_card_type != stack_card_type {
-                                if card_type == stack_card_type {
-                                    (*min_idx, *min_card) = (idx, card);
-                                } else if card > min_card && min_card != &&QUEEN_OF_SPADE {
+                                if card_type == stack_card_type
+                                    || card > min_card && min_card != &&QUEEN_OF_SPADE
+                                {
                                     (*min_idx, *min_card) = (idx, card); // in this case we want
                                                                          // the highest
                                 }
@@ -491,7 +491,7 @@ impl Game {
                         // can play same kind
                         if player.get_cards().iter().any(|c| {
                             if let Some(c) = c {
-                                return &c.get_type() == &first_played_type_card;
+                                return c.get_type() == first_played_type_card;
                             }
                             false
                         }) {
