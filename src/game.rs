@@ -582,7 +582,8 @@ impl Game {
             self.current_player_pos = *max_card.0;
             current_scores[self.current_player_pos] += score;
             for s in stack.iter_mut() {
-                let Some(empty_slot) = self.back_in_deck.iter_mut().find(|s| s.is_none()) else {unreachable!()};
+                let Some(empty_slot) = self.back_in_deck.iter_mut()
+                    .find(|s| s.is_none()) else {unreachable!()};
                 empty_slot.replace(s.take().map(|(_, c)| c).unwrap());
             }
             if self.back_in_deck.iter().filter(|s| s.is_some()).count() == DECK_SIZE {
