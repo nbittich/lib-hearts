@@ -392,11 +392,7 @@ impl Game {
             fn filter_not_empty_slot<'a>(
                 o: &'a Option<(usize, &'a Card)>,
             ) -> Option<(usize, &'a Card)> {
-                if let Some(o) = o {
-                    Some(*o)
-                } else {
-                    None
-                }
+                o.as_ref().copied()
             };
 
             let player = self.players.get(self.current_player_pos).unwrap();
@@ -421,16 +417,14 @@ impl Game {
                             let stack_card = &DECK.0[*stack_card_idx];
                             let stack_card_type = stack_card.get_type();
                             let min_card_type = min_card.get_type();
-                            if &min_card_type != &stack_card_type {
+                            if min_card_type != stack_card_type {
                                 if min_card.get_value() < card.get_value() {
                                     (*min_idx, *min_card) = (idx, card); // in this case we want
                                                                          // the highest
                                 }
-                            } else {
-                                if min_card.get_value() > card.get_value() {
-                                    (*min_idx, *min_card) = (idx, card); // in this case we want
-                                                                         // the lowest
-                                }
+                            } else if min_card.get_value() > card.get_value() {
+                                (*min_idx, *min_card) = (idx, card); // in this case we want
+                                                                     // the lowest
                             }
                         }
                     } else {
@@ -516,7 +510,7 @@ impl Game {
                         return Err(GameError::HeartNeverPlayedBefore);
                     }
                 }
-                return Ok(card_to_play_idx);
+                Ok(card_to_play_idx)
             }
             _ => Err(GameError::StateError),
         }
