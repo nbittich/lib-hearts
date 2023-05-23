@@ -84,6 +84,15 @@ impl Card {
 }
 impl PartialOrd for Card {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self.get_type(), other.get_type()) {
+            (TypeCard::Heart, TypeCard::Spade)
+            | (TypeCard::Heart, TypeCard::Diamond)
+            | (TypeCard::Heart, TypeCard::Club) => return GREATER,
+            (TypeCard::Spade, TypeCard::Heart)
+            | (TypeCard::Diamond, TypeCard::Heart)
+            | (TypeCard::Club, TypeCard::Heart) => return LESS,
+            _ => {}
+        }
         match (self, other) {
             (Card::Queen(_, _), Card::Queen(_, _)) => EQUAL,
             (Card::Queen(_, _), Card::King(_, _)) => LESS,
@@ -417,15 +426,21 @@ impl Game {
                             let stack_card = &DECK.0[*stack_card_idx];
                             let stack_card_type = stack_card.get_type();
                             let min_card_type = min_card.get_type();
+                            let card_type = card.get_type();
                             if min_card_type != stack_card_type {
-                                if min_card.get_value() < card.get_value() {
+                                if card_type == stack_card_type {
+                                    (*min_idx, *min_card) = (idx, card);
+                                } else if card > min_card && min_card != &&QUEEN_OF_SPADE {
                                     (*min_idx, *min_card) = (idx, card); // in this case we want
                                                                          // the highest
                                 }
-                            } else if min_card.get_value() > card.get_value() {
+                            } else if card < min_card && card_type == stack_card_type {
                                 (*min_idx, *min_card) = (idx, card); // in this case we want
                                                                      // the lowest
                             }
+                        } else if card < min_card {
+                            (*min_idx, *min_card) = (idx, card); // in this case we want
+                                                                 // the lowest
                         }
                     } else {
                         min_card = Some((idx, card));
@@ -448,7 +463,6 @@ impl Game {
             } => {
                 let player = self.players.get(self.current_player_pos).unwrap();
                 if stack.iter().all(|s| s.is_some()) {
-                    dbg!("stack is full");
                     return Err(GameError::ForbiddenMove);
                 }
                 if !player.cards.contains(&Some(card_to_play_idx)) {
@@ -475,11 +489,9 @@ impl Game {
 
                     if card_to_play_type != first_played_type_card {
                         // can play same kind
-                        if player.cards.iter().any(|c| {
+                        if player.get_cards().iter().any(|c| {
                             if let Some(c) = c {
-                                if c != &card_to_play_idx {
-                                    return DECK.0[*c].get_type() == first_played_type_card;
-                                }
+                                return &c.get_type() == &first_played_type_card;
                             }
                             false
                         }) {
@@ -554,8 +566,8 @@ impl Game {
 
                 let next_played_card = &DECK.0[*next_card_idx];
                 let next_played_type_card = next_played_card.get_type();
-                if next_played_type_card == first_played_type_card
-                    && max_card.1.partial_cmp(next_played_card) == LESS
+
+                if next_played_type_card == first_played_type_card && max_card.1 < next_played_card
                 {
                     max_card = (next_player_pos, next_played_card);
                 }
@@ -582,6 +594,30 @@ impl Game {
             self.players[self.current_player_pos].id,
             Into::<&str>::into(&self.state)
         );
+        if let GameState::PlayingHand {
+            stack,
+            current_scores,
+        } = &self.state
+        {
+            println!(
+                "Player order: {:?}",
+                stack.map(|c| if let Some((pl_idx, _)) = c {
+                    format!("{}", pl_idx + 1)
+                } else {
+                    "-".into()
+                })
+            );
+            println!(
+                "Current stack: {}",
+                stack
+                    .map(|c| if let Some((_, c)) = c {
+                        DECK.0[c].get_emoji()
+                    } else {
+                        "-"
+                    })
+                    .join(" ")
+            );
+        }
         for player in self.players.iter() {
             let card_emojis = player
                 .get_cards()
@@ -589,7 +625,7 @@ impl Game {
                 .join(" ");
             println!("Player {}: {}", player.id, card_emojis);
         }
-        println!("************* current state **************");
+        //println!("******************************************");
     }
 }
 
@@ -666,7 +702,6 @@ mod test {
             }
             game.exchange_cards(exchange);
         }
-        game.print_state();
         assert!(matches!(
             game.state,
             GameState::PlayingHand {
@@ -694,8 +729,8 @@ mod test {
                 current_scores: _
             }
         ) {
-            game.play_bot().unwrap();
             game.print_state();
+            game.play_bot().unwrap();
         }
     }
 }
