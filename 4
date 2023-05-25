@@ -270,10 +270,6 @@ pub enum GameState {
         stack: [Option<(usize, usize)>; PLAYER_NUMBER],
         current_scores: [usize; PLAYER_NUMBER],
     },
-    ComputeScore {
-        stack: [Option<(usize, usize)>; PLAYER_NUMBER],
-        current_scores: [usize; PLAYER_NUMBER],
-    },
     EndHand,
     End,
 }
@@ -286,10 +282,6 @@ impl From<&GameState> for &str {
                 current_scores,
             } => "PlayingHand",
             GameState::EndHand => "EndHand",
-            GameState::ComputeScore {
-                stack,
-                current_scores,
-            } => "ComputeScore",
             GameState::End => "End",
         }
     }
@@ -424,41 +416,42 @@ impl Game {
 
             let cards = player.get_cards_and_pos_in_deck();
 
-            let current_stack_state = self.get_current_stack_state();
+            let first_play = cards
+                .iter()
+                .filter_map(filter_not_empty_slot)
+                .find(|(_, card)| card == &&CARD_TO_START);
+
+            if let Some((idx, _)) = first_play {
+                return self.play(idx);
+            }
 
             let mut min_card: Option<(usize, &Card)> = None;
-            // todo probably can be simplified, not liking it
             for (idx, card) in cards.iter().filter_map(filter_not_empty_slot) {
                 if let Ok(idx) = self.validate_play(idx) {
                     if let Some((min_idx, min_card)) = &mut min_card {
-                        if let Some(current_stack_state) = &current_stack_state {
-                            let first_card = &DECK.0[current_stack_state.first_card_played_pos];
-                            let current_losing_card =
-                                &DECK.0[current_stack_state.current_losing_card_pos];
-
-                            let current_losing_card_type = current_losing_card.get_type();
-                            let first_card_type = first_card.get_type();
-                            let card_type = card.get_type();
+                        if let Some(Some((_, stack_card_idx))) = stack.get(0) {
+                            // todo this is not
+                            // working, we need the first card in the stack but also the max one
+                            // if the max one is K of spade, we play Q of spade for example
+                            // so instead of this mess, better to create a function
+                            // get_max_card(&[card_idx]) -> card_idx or something like that
+                            // there is a card in stack
+                            let stack_card = &DECK.0[*stack_card_idx];
+                            let stack_card_type = stack_card.get_type();
                             let min_card_type = min_card.get_type();
-
-                            if min_card_type == first_card_type {
-                                if (current_losing_card > card
-                                    && card > min_card
-                                    && min_card != &&QUEEN_OF_SPADE)
-                                    || (current_losing_card < min_card
-                                        && (card < min_card || min_card == &&QUEEN_OF_SPADE))
+                            let card_type = card.get_type();
+                            if min_card_type != stack_card_type {
+                                if card_type == stack_card_type
+                                    || card > min_card && min_card != &&QUEEN_OF_SPADE
                                 {
-                                    (*min_idx, *min_card) = (idx, card);
+                                    (*min_idx, *min_card) = (idx, card); // in this case we want
+                                                                         // the highest
                                 }
-                            } else if (card > min_card && min_card != &&QUEEN_OF_SPADE)
-                                || card == &QUEEN_OF_SPADE
-                            {
-                                // play the max card
-                                (*min_idx, *min_card) = (idx, card);
+                            } else if card < min_card && card_type == stack_card_type {
+                                (*min_idx, *min_card) = (idx, card); // in this case we want
+                                                                     // the lowest
                             }
-                        } else if (card < min_card && card != &QUEEN_OF_SPADE)
-                            || min_card == &&QUEEN_OF_SPADE
-                        {
+                        } else if card < min_card {
                             (*min_idx, *min_card) = (idx, card); // in this case we want
                                                                  // the lowest
                         }
@@ -473,14 +466,6 @@ impl Game {
                               then probably deck not well shuffled")
             };
             self.play(min_idx)
-        } else if let GameState::ExchangeCards { commands } = &self.state {
-            let Some(player) = self.players.get(self.current_player_pos) else {unreachable!()};
-            let mut exchange = [0; 3];
-            for (i, c) in player.cards.iter().take(3).enumerate() {
-                let Some(c) = c else {unreachable!()};
-                exchange[i] = *c;
-            }
-            self.exchange_cards(exchange)
         } else {
             Err(GameError::StateError)
         }
@@ -564,6 +549,7 @@ impl Game {
         let GameState::PlayingHand { stack, current_scores } = &mut self.state else {
             unreachable!("already validated")};
         let player = self.players.get_mut(self.current_player_pos).unwrap();
+        let Some(current_stack_state) = self.get_current_stack_state(stack_slice);
         let card_to_play = &DECK.0[card_to_play_idx];
         let card_to_play_type = card_to_play.get_type();
 
@@ -587,55 +573,32 @@ impl Game {
         }
         // check if stack full
         if stack.iter().all(|s| s.is_some()) {
-            self.state = GameState::ComputeScore {
-                stack: *stack,
-                current_scores: *current_scores,
-            };
-        }
-
-        Ok(())
-    }
-    pub fn compute_score(&mut self) -> Result<(), GameError> {
-        let Some(current_stack_state) = self.get_current_stack_state() else {unreachable!()};
-        self.current_player_pos = current_stack_state.current_losing_player_pos;
-        let GameState::ComputeScore { stack, current_scores } = &mut self.state else {
-            unreachable!("shouldn't happen")};
-        current_scores[self.current_player_pos] += current_stack_state.score;
-        for s in stack.iter_mut() {
-            let Some(empty_slot) = self.back_in_deck.iter_mut()
+            // do the math
+            let stack_slice = &stack[..];
+            let Some(current_stack_state) = self.get_current_stack_state(stack_slice) else {unreachable!()};
+            self.current_player_pos = current_stack_state.current_losing_player_pos.clone();
+            current_scores[self.current_player_pos] += current_stack_state.score;
+            for s in stack.iter_mut() {
+                let Some(empty_slot) = self.back_in_deck.iter_mut()
                     .find(|s| s.is_none()) else {unreachable!()};
-            empty_slot.replace(s.take().map(|(_, c)| c).unwrap());
+                empty_slot.replace(s.take().map(|(_, c)| c).unwrap());
+            }
+            if self.back_in_deck.iter().filter(|s| s.is_some()).count() == DECK_SIZE {
+                self.state = GameState::EndHand;
+            }
         }
-        if self.back_in_deck.iter().filter(|s| s.is_some()).count() == DECK_SIZE {
-            self.state = GameState::EndHand;
-        } else {
-            self.state = GameState::PlayingHand {
-                stack: *stack,
-                current_scores: *current_scores,
-            };
-        }
+
         Ok(())
     }
 
-    fn get_current_stack_state(&self) -> Option<StackState> {
-        let (stack, current_scores) = match self.state {
-            GameState::PlayingHand {
-                stack,
-                current_scores,
-            }
-            | GameState::ComputeScore {
-                stack,
-                current_scores,
-            } => Some((stack, current_scores)),
-            _ => None,
-        }?;
+    fn get_current_stack_state(&self, stack: &[Option<(usize, usize)>]) -> Option<StackState> {
         let (first_player_pos, first_card_idx) = &stack[0]?;
         let first_played_card = &DECK.0[*first_card_idx];
         let first_played_type_card = first_played_card.get_type();
         let mut max_card = (first_player_pos, first_played_card, *first_card_idx);
         let mut score = first_played_card.get_value();
-        for c in stack.iter().skip(1).filter(|c| c.is_some()) {
-            let Some((next_player_pos, next_card_idx)) = c else {return None};
+        for c in stack.iter().skip(1) {
+            let Some((next_player_pos, next_card_idx)) = c else {unreachable!()};
 
             let next_played_card = &DECK.0[*next_card_idx];
             let next_played_type_card = next_played_card.get_type();
@@ -660,7 +623,7 @@ impl Game {
             self.players[self.current_player_pos].id,
             Into::<&str>::into(&self.state)
         );
-        if let GameState::ComputeScore {
+        if let GameState::PlayingHand {
             stack,
             current_scores,
         } = &self.state
@@ -737,11 +700,6 @@ mod test {
     }
 
     #[test]
-    pub fn test_compare() {
-        assert!(Card::Queen(TypeCard::Spade, "_") > Card::Jack(TypeCard::Spade, "_"));
-    }
-
-    #[test]
     pub fn exchange_cards_test() {
         let mut game = Game::new([1, 2, 3, 4], 1);
         let clone: Vec<[Option<usize>; PLAYER_CARD_SIZE]> =
@@ -767,7 +725,21 @@ mod test {
             game.state,
             GameState::ExchangeCards { commands: _ }
         ));
-
+        while matches!(&game.state, &GameState::ExchangeCards { commands: _ }) {
+            let player = game.players.get(game.current_player_pos).unwrap();
+            let mut exchange = [0; 3];
+            for (i, c) in player.cards.iter().take(3).enumerate() {
+                exchange[i] = c.unwrap();
+            }
+            game.exchange_cards(exchange);
+        }
+        assert!(matches!(
+            game.state,
+            GameState::PlayingHand {
+                stack: _,
+                current_scores: _
+            }
+        ));
         // let first_card = game.players[game.current_player_pos]
         //     .get_cards_and_pos_in_deck()
         //     .iter()
@@ -781,31 +753,15 @@ mod test {
         //     })
         //     .expect("card to start not found!");
 
-        loop {
-            match game.state {
-                GameState::ExchangeCards { commands } => {
-                    game.play_bot().unwrap();
-                }
-                GameState::PlayingHand {
-                    stack,
-                    current_scores,
-                } => game.play_bot().unwrap(),
-                GameState::ComputeScore {
-                    stack,
-                    current_scores,
-                } => {
-                    game.print_state();
-                    game.compute_score().unwrap();
-                }
-                GameState::EndHand => {
-                    //todo print result for hand
-                    break;
-                }
-                GameState::End => {
-                    // todo print final winners
-                    break;
-                }
+        while matches!(
+            game.state,
+            GameState::PlayingHand {
+                stack: _,
+                current_scores: _
             }
+        ) {
+            game.print_state();
+            game.play_bot().unwrap();
         }
     }
 }
