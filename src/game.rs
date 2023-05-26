@@ -683,16 +683,15 @@ impl Game {
             current_scores,
         } = &self.state
         {
-            println!(
-                "Player order:  {}",
-                stack
-                    .map(|c| if let Some((pl_idx, _)) = c {
-                        format!("{}", pl_idx + 1)
-                    } else {
-                        "-".into()
-                    })
-                    .join(" ")
-            );
+            // avoid allocating
+            print!("Player order:  ");
+            for s in stack {
+                if let Some((pl_idx, _)) = s {
+                    print!("{} ", pl_idx + 1);
+                }
+            }
+            println!();
+
             println!(
                 "Current stack: {}",
                 stack
@@ -703,6 +702,14 @@ impl Game {
                     })
                     .join(" ")
             );
+            // avoid allocating
+            print!("Current Score: ");
+            for s in stack {
+                if let Some((pl_idx, _)) = s {
+                    print!("{} ", current_scores[*pl_idx]);
+                }
+            }
+            println!();
         }
         for player in self.players.iter() {
             let card_emojis = player
