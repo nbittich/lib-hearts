@@ -15,6 +15,7 @@ const PLAYER_NUMBER: usize = 4;
 const CARD_TO_START: Card = Card::Number(2, TypeCard::Club, "🃒");
 const QUEEN_OF_SPADE: Card = Card::Queen(TypeCard::Spade, "🂭");
 
+const MAX_SCORE: usize = 26;
 const GREATER: Option<Ordering> = Some(Ordering::Greater);
 const LESS: Option<Ordering> = Some(Ordering::Less);
 const EQUAL: Option<Ordering> = Some(Ordering::Equal);
@@ -608,7 +609,16 @@ impl Game {
         self.current_player_pos = current_stack_state.current_losing_player_pos;
         let GameState::ComputeScore { stack, current_scores } = &mut self.state else {
             unreachable!("shouldn't happen")};
-        current_scores[self.current_player_pos] += current_stack_state.score;
+        if current_stack_state.score == MAX_SCORE {
+            for (idx, score) in current_scores.iter_mut().enumerate() {
+                if idx == self.current_player_pos {
+                    continue;
+                }
+                *score = MAX_SCORE;
+            }
+        } else {
+            current_scores[self.current_player_pos] += current_stack_state.score;
+        }
         for s in stack.iter_mut() {
             let Some(empty_slot) = self.back_in_deck.iter_mut()
                     .find(|s| s.is_none()) else {unreachable!()};
