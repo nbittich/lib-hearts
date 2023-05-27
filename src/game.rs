@@ -276,6 +276,7 @@ pub enum GameState {
         current_scores: [usize; PLAYER_NUMBER],
     },
     EndHand,
+
     End,
 }
 impl From<&GameState> for &str {
@@ -312,59 +313,31 @@ impl Game {
             unsafe { MaybeUninit::uninit().assume_init() };
 
         let mut player_id_it = player_ids.iter();
-        let mut rng = thread_rng();
-
-        let mut deck_shuffled_positions = [0usize; DECK_SIZE];
-        for (n, item) in deck_shuffled_positions
-            .iter_mut()
-            .enumerate()
-            .take(DECK_SIZE)
-        {
-            *item = n;
-        }
-        deck_shuffled_positions.shuffle(&mut rng);
 
         let mut current_player = 0;
 
         for (pos_player, player) in players[..].iter_mut().enumerate() {
             let player_id = player_ids[pos_player];
             let mut player_cards: [Option<usize>; PLAYER_CARD_SIZE] = [None; PLAYER_CARD_SIZE];
-            let start_pos = pos_player * PLAYER_CARD_SIZE;
-            for (i, random_pos_in_deck) in deck_shuffled_positions
-                .into_iter()
-                .skip(start_pos)
-                .take(PLAYER_CARD_SIZE)
-                .enumerate()
-            {
-                player_cards[i] = Some(random_pos_in_deck);
-                if DECK.0[random_pos_in_deck] == CARD_TO_START {
-                    current_player = pos_player;
-                }
-            }
+
             player.write(Player::new(player_id, player_cards));
         }
 
         let mut players: [Player; PLAYER_NUMBER] =
             unsafe { std::mem::transmute::<_, [Player; PLAYER_NUMBER]>(players) };
 
-        for player in &mut players {
-            player.cards.sort_by(|c1, c2| {
-                return match (c1, c2) {
-                    (Some(c1), (Some(c2))) => c1.cmp(c2),
-                    _ => unreachable!(),
-                };
-            });
-        }
-        Self {
+        let mut game = Self {
             hands,
-            current_hand: 0,
+            current_hand: 1,
             players,
             state: GameState::ExchangeCards {
                 commands: [None; PLAYER_NUMBER],
             },
             back_in_deck: [None; DECK_SIZE],
             current_player_pos: current_player,
-        }
+        };
+        game.deal_cards();
+        game
     }
     pub fn exchange_cards(
         &mut self,
@@ -417,6 +390,82 @@ impl Game {
         }
     }
 
+    pub fn deal_cards(&mut self) -> Result<(), GameError> {
+        match &self.state {
+            GameState::ExchangeCards { commands } => {}
+            GameState::EndHand => {
+                if self.current_hand < self.hands {
+                    self.current_hand += 1;
+                    for card_in_deck in self.back_in_deck.iter_mut() {
+                        *card_in_deck = None;
+                    }
+                    self.state = GameState::ExchangeCards {
+                        commands: [None; PLAYER_NUMBER],
+                    };
+                } else {
+                    self.state = GameState::End;
+                    return Ok(());
+                }
+            }
+            _ => return Err(GameError::StateError),
+        }
+        fn is_deal_valid(game: &Game) -> bool {
+            !game.players.iter().any(|p| {
+                p.get_cards()
+                    .iter()
+                    .filter_map(|c| {
+                        if let Some(c) = c {
+                            Some(c.get_type())
+                        } else {
+                            None
+                        }
+                    })
+                    .filter(|t| !matches!(t, TypeCard::Heart))
+                    .count()
+                    == 0
+            })
+        }
+        fn deal(game: &mut Game) {
+            let mut rng = thread_rng();
+            let mut deck_shuffled_positions = [0usize; DECK_SIZE];
+            for (n, item) in deck_shuffled_positions
+                .iter_mut()
+                .enumerate()
+                .take(DECK_SIZE)
+            {
+                *item = n;
+            }
+            deck_shuffled_positions.shuffle(&mut rng);
+            for (pos_player, player) in game.players.iter_mut().enumerate() {
+                let start_pos = pos_player * PLAYER_CARD_SIZE;
+                for (i, random_pos_in_deck) in deck_shuffled_positions
+                    .into_iter()
+                    .skip(start_pos)
+                    .take(PLAYER_CARD_SIZE)
+                    .enumerate()
+                {
+                    player.cards[i] = Some(random_pos_in_deck);
+                    if DECK.0[random_pos_in_deck] == CARD_TO_START {
+                        game.current_player_pos = pos_player;
+                    }
+                }
+            }
+        }
+
+        while !is_deal_valid(&self) {
+            deal(self);
+        }
+
+        for player in &mut self.players {
+            player.cards.sort_by(|c1, c2| {
+                return match (c1, c2) {
+                    (Some(c1), (Some(c2))) => c1.cmp(c2),
+                    _ => unreachable!(),
+                };
+            });
+        }
+        Ok(())
+    }
     pub fn play_bot(&mut self) -> Result<(), GameError> {
         if let GameState::PlayingHand {
             stack,
@@ -436,7 +485,7 @@ impl Game {
             let current_stack_state = self.get_current_stack_state();
 
             let mut min_card: Option<(usize, &Card)> = None;
-            // todo probably can be simplified, not liking it
+            // TODO probably can be simplified, not liking it
             for (idx, card) in cards.iter().filter_map(filter_not_empty_slot) {
                 if let Ok(idx) = self.validate_play(idx) {
                     if let Some((min_idx, min_card)) = &mut min_card {
@@ -549,6 +598,7 @@ impl Game {
                     }
                 } else {
                     // first to play
+                    // unless player has no other choice
                     // check if heart and there's no heart used in deck
                     if card_to_play_type == TypeCard::Heart
                         && !self.back_in_deck.iter().any(|c| {
@@ -558,6 +608,17 @@ impl Game {
                                 false
                             }
                         })
+                        && player
+                            .get_cards()
+                            .iter()
+                            .filter_map(|c| {
+                                if let Some(c) = c {
+                                    Some(c.get_type())
+                                } else {
+                                    None
+                                }
+                            })
+                            .any(|c| c != TypeCard::Heart)
                     {
                         return Err(GameError::HeartNeverPlayedBefore);
                     }
@@ -619,14 +680,19 @@ impl Game {
         } else {
             current_scores[self.current_player_pos] += current_stack_state.score;
         }
-        for s in stack.iter_mut() {
-            let Some(empty_slot) = self.back_in_deck.iter_mut()
-                    .find(|s| s.is_none()) else {unreachable!()};
-            empty_slot.replace(s.take().map(|(_, c)| c).unwrap());
-        }
-        if self.back_in_deck.iter().filter(|s| s.is_some()).count() == DECK_SIZE {
+
+        if self.back_in_deck.iter().filter(|s| s.is_some()).count() == DECK_SIZE - PLAYER_NUMBER {
+            for s in *stack {
+                let Some((pos_player, _)) = s else {unreachable!()};
+                self.players[pos_player].score += current_scores[pos_player];
+            }
             self.state = GameState::EndHand;
         } else {
+            for s in stack.iter_mut() {
+                let Some(empty_slot) = self.back_in_deck.iter_mut()
+                    .find(|s| s.is_none()) else {unreachable!()};
+                empty_slot.replace(s.take().map(|(_, c)| c).unwrap());
+            }
             self.state = GameState::PlayingHand {
                 stack: *stack,
                 current_scores: *current_scores,
@@ -678,46 +744,58 @@ impl Game {
             self.players[self.current_player_pos].id,
             Into::<&str>::into(&self.state)
         );
-        if let GameState::ComputeScore {
-            stack,
-            current_scores,
-        } = &self.state
-        {
-            // avoid allocating
-            print!("Player order:  ");
-            for s in stack {
-                if let Some((pl_idx, _)) = s {
-                    print!("{} ", pl_idx + 1);
+        match &self.state {
+            GameState::ComputeScore {
+                stack,
+                current_scores,
+            } => {
+                // avoid allocating
+                print!("Player order:  ");
+                for s in stack {
+                    if let Some((pl_idx, _)) = s {
+                        print!("{} ", pl_idx + 1);
+                    }
                 }
-            }
-            println!();
+                println!();
 
-            println!(
-                "Current stack: {}",
-                stack
-                    .map(|c| if let Some((_, c)) = c {
-                        DECK.0[c].get_emoji()
-                    } else {
-                        "-"
-                    })
-                    .join(" ")
-            );
-            // avoid allocating
-            print!("Current Score: ");
-            for s in stack {
-                if let Some((pl_idx, _)) = s {
-                    print!("{} ", current_scores[*pl_idx]);
+                println!(
+                    "Current stack: {}",
+                    stack
+                        .map(|c| if let Some((_, c)) = c {
+                            DECK.0[c].get_emoji()
+                        } else {
+                            "-"
+                        })
+                        .join(" ")
+                );
+                // avoid allocating
+                print!("Current Score: ");
+                for s in stack {
+                    if let Some((pl_idx, _)) = s {
+                        print!("{} ", current_scores[*pl_idx]);
+                    }
+                }
+                println!();
+                for player in self.players.iter() {
+                    let card_emojis = player
+                        .get_cards()
+                        .map(|c| if let Some(c) = c { c.get_emoji() } else { "-" })
+                        .join(" ");
+                    println!("Player {}: {}", player.id, card_emojis);
                 }
             }
-            println!();
+
+            GameState::EndHand => {
+                // avoid allocating
+                print!("Hand Score:  ");
+                for p in &self.players {
+                    print!("{} ", p.score);
+                }
+                println!();
+            }
+            _ => {}
         }
-        for player in self.players.iter() {
-            let card_emojis = player
-                .get_cards()
-                .map(|c| if let Some(c) = c { c.get_emoji() } else { " " })
-                .join(" ");
-            println!("Player {}: {}", player.id, card_emojis);
-        }
+
         //println!("******************************************");
     }
 }
@@ -787,48 +865,37 @@ mod test {
     }
     #[test]
     pub fn play() {
-        let mut game = Game::new([1, 2, 3, 4], 1);
+        let mut game = Game::new([1, 2, 3, 4], 255);
         assert!(matches!(
             game.state,
             GameState::ExchangeCards { commands: _ }
         ));
 
-        // let first_card = game.players[game.current_player_pos]
-        //     .get_cards_and_pos_in_deck()
-        //     .iter()
-        //     .find_map(|o| {
-        //         if let Some((idx, card)) = o {
-        //             if card == &&CARD_TO_START {
-        //                 return Some(*idx);
-        //             }
-        //         }
-        //         None
-        //     })
-        //     .expect("card to start not found!");
-
-        loop {
-            match game.state {
-                GameState::ExchangeCards { commands } => {
-                    game.play_bot().unwrap();
-                }
-                GameState::PlayingHand {
-                    stack,
-                    current_scores,
-                } => game.play_bot().unwrap(),
-                GameState::ComputeScore {
-                    stack,
-                    current_scores,
-                } => {
-                    game.print_state();
-                    game.compute_score().unwrap();
-                }
-                GameState::EndHand => {
-                    //todo print result for hand
-                    break;
-                }
-                GameState::End => {
-                    // todo print final winners
-                    break;
+        for _ in 0..500_000_000_000u64 {
+            loop {
+                match game.state {
+                    GameState::ExchangeCards { commands } => {
+                        game.play_bot().unwrap();
+                    }
+                    GameState::PlayingHand {
+                        stack,
+                        current_scores,
+                    } => game.play_bot().unwrap(),
+                    GameState::ComputeScore {
+                        stack,
+                        current_scores,
+                    } => {
+                        // game.print_state();
+                        game.compute_score().unwrap();
+                    }
+                    GameState::EndHand => {
+                        //   game.print_state();
+                        game.deal_cards();
+                    }
+                    GameState::End => {
+                        // TODO print final winners
+                        break;
+                    }
                 }
             }
         }
