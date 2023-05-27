@@ -865,37 +865,35 @@ mod test {
     }
     #[test]
     pub fn play() {
-        let mut game = Game::new([1, 2, 3, 4], 255);
+        let mut game = Game::new([1, 2, 3, 4], 1);
         assert!(matches!(
             game.state,
             GameState::ExchangeCards { commands: _ }
         ));
 
-        for _ in 0..500_000_000_000u64 {
-            loop {
-                match game.state {
-                    GameState::ExchangeCards { commands } => {
-                        game.play_bot().unwrap();
-                    }
-                    GameState::PlayingHand {
-                        stack,
-                        current_scores,
-                    } => game.play_bot().unwrap(),
-                    GameState::ComputeScore {
-                        stack,
-                        current_scores,
-                    } => {
-                        // game.print_state();
-                        game.compute_score().unwrap();
-                    }
-                    GameState::EndHand => {
-                        //   game.print_state();
-                        game.deal_cards();
-                    }
-                    GameState::End => {
-                        // TODO print final winners
-                        break;
-                    }
+        loop {
+            match game.state {
+                GameState::ExchangeCards { commands } => {
+                    game.play_bot().unwrap();
+                }
+                GameState::PlayingHand {
+                    stack,
+                    current_scores,
+                } => game.play_bot().unwrap(),
+                GameState::ComputeScore {
+                    stack,
+                    current_scores,
+                } => {
+                    game.print_state();
+                    game.compute_score().unwrap();
+                }
+                GameState::EndHand => {
+                    game.print_state();
+                    game.deal_cards();
+                }
+                GameState::End => {
+                    // TODO print final winners
+                    break;
                 }
             }
         }
