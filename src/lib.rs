@@ -1,10 +1,4 @@
-use std::{
-    cmp::{self, Ordering},
-    error::Error,
-    fmt::Display,
-    mem::MaybeUninit,
-    usize,
-};
+use std::{cmp::Ordering, fmt::Display, mem::MaybeUninit, usize};
 
 use rand::prelude::*;
 
@@ -66,28 +60,28 @@ impl Card {
         }
     }
 
-    pub const fn get_type(&self) -> TypeCard {
+    pub const fn get_type(&self) -> &TypeCard {
         match self {
             Card::Queen(TypeCard::Heart, _)
             | Card::King(TypeCard::Heart, _)
             | Card::Ace(TypeCard::Heart, _)
             | Card::Number(_, TypeCard::Heart, _)
-            | Card::Jack(TypeCard::Heart, _) => TypeCard::Heart,
+            | Card::Jack(TypeCard::Heart, _) => &TypeCard::Heart,
             Card::King(TypeCard::Diamond, _)
             | Card::Queen(TypeCard::Diamond, _)
             | Card::Ace(TypeCard::Diamond, _)
             | Card::Number(_, TypeCard::Diamond, _)
-            | Card::Jack(TypeCard::Diamond, _) => TypeCard::Diamond,
+            | Card::Jack(TypeCard::Diamond, _) => &TypeCard::Diamond,
             Card::King(TypeCard::Spade, _)
             | Card::Queen(TypeCard::Spade, _)
             | Card::Ace(TypeCard::Spade, _)
             | Card::Number(_, TypeCard::Spade, _)
-            | Card::Jack(TypeCard::Spade, _) => TypeCard::Spade,
+            | Card::Jack(TypeCard::Spade, _) => &TypeCard::Spade,
             Card::King(TypeCard::Club, _)
             | Card::Queen(TypeCard::Club, _)
             | Card::Ace(TypeCard::Club, _)
             | Card::Number(_, TypeCard::Club, _)
-            | Card::Jack(TypeCard::Club, _) => TypeCard::Club,
+            | Card::Jack(TypeCard::Club, _) => &TypeCard::Club,
         }
     }
 }
@@ -216,21 +210,23 @@ impl Deck {
 const DECK: Deck = Deck::new();
 
 #[derive(Debug)]
-struct Player {
+pub struct Player {
     id: u64,
     score: usize,
     cards: [Option<usize>; PLAYER_CARD_SIZE], // card position in the deck
+    is_bot: bool,
 }
 
 impl Player {
-    pub fn new(id: u64, cards: [Option<usize>; PLAYER_CARD_SIZE]) -> Self {
+    pub fn new(id: u64, is_bot: bool, cards: [Option<usize>; PLAYER_CARD_SIZE]) -> Self {
         Self {
             id,
             score: 0,
             cards,
+            is_bot,
         }
     }
-    pub fn replace_cards(&mut self, new_cards: [usize; NUMBER_REPLACEABLE_CARDS]) {
+    fn replace_cards(&mut self, new_cards: [usize; NUMBER_REPLACEABLE_CARDS]) {
         let empty_slots: Vec<&mut Option<usize>> =
             self.cards.iter_mut().filter(|c| c.is_none()).collect();
 
@@ -241,8 +237,8 @@ impl Player {
             *slot = Some(new_cards[i]);
         }
     }
-    pub fn remove_card(&mut self, card_p: usize) -> Option<usize> {
-        let mut pos = self.cards.iter_mut().find(|p| p == &&Some(card_p));
+    fn remove_card(&mut self, card_p: usize) -> Option<usize> {
+        let pos = self.cards.iter_mut().find(|p| p == &&Some(card_p));
         if let Some(pos) = pos {
             pos.take()
         } else {
@@ -259,6 +255,15 @@ impl Player {
 
     pub fn has_card(&self, card_p: usize) -> bool {
         self.cards.iter().any(|c| c == &Some(card_p))
+    }
+    pub fn get_score(&self) -> usize {
+        self.score
+    }
+    pub fn get_id(&self) -> u64 {
+        self.id
+    }
+    pub fn is_bot(&self) -> bool {
+        self.is_bot
     }
 }
 
@@ -282,15 +287,15 @@ pub enum GameState {
 impl From<&GameState> for &str {
     fn from(value: &GameState) -> Self {
         match value {
-            GameState::ExchangeCards { commands } => "ExchangeCards",
+            GameState::ExchangeCards { commands: _ } => "ExchangeCards",
             GameState::PlayingHand {
-                stack,
-                current_scores,
+                stack: _,
+                current_scores: _,
             } => "PlayingHand",
             GameState::EndHand => "EndHand",
             GameState::ComputeScore {
-                stack,
-                current_scores,
+                stack: _,
+                current_scores: _,
             } => "ComputeScore",
             GameState::End => "End",
         }
@@ -299,31 +304,27 @@ impl From<&GameState> for &str {
 
 #[derive(Debug)]
 pub struct Game {
-    players: [Player; PLAYER_NUMBER],
-    current_player_pos: usize,
-    current_hand: u8,
+    pub players: [Player; PLAYER_NUMBER],
+    pub current_player_pos: usize,
+    pub current_hand: u8,
     back_in_deck: [Option<usize>; DECK_SIZE],
-    state: GameState,
-    hands: u8,
+    pub state: GameState,
+    pub hands: u8,
 }
 
 impl Game {
-    pub fn new(player_ids: [u64; PLAYER_NUMBER], hands: u8) -> Self {
+    pub fn new(player_builders: [(u64, bool); PLAYER_NUMBER], hands: u8) -> Self {
         let mut players: [MaybeUninit<Player>; PLAYER_NUMBER] =
             unsafe { MaybeUninit::uninit().assume_init() };
 
-        let mut player_id_it = player_ids.iter();
-
-        let mut current_player = 0;
-
         for (pos_player, player) in players[..].iter_mut().enumerate() {
-            let player_id = player_ids[pos_player];
-            let mut player_cards: [Option<usize>; PLAYER_CARD_SIZE] = [None; PLAYER_CARD_SIZE];
+            let (player_id, is_bot) = player_builders[pos_player];
+            let player_cards: [Option<usize>; PLAYER_CARD_SIZE] = [None; PLAYER_CARD_SIZE];
 
-            player.write(Player::new(player_id, player_cards));
+            player.write(Player::new(player_id, is_bot, player_cards));
         }
 
-        let mut players: [Player; PLAYER_NUMBER] =
+        let players: [Player; PLAYER_NUMBER] =
             unsafe { std::mem::transmute::<_, [Player; PLAYER_NUMBER]>(players) };
 
         let mut game = Self {
@@ -334,11 +335,12 @@ impl Game {
                 commands: [None; PLAYER_NUMBER],
             },
             back_in_deck: [None; DECK_SIZE],
-            current_player_pos: current_player,
+            current_player_pos: 0,
         };
-        game.deal_cards();
+        game.deal_cards().expect("should be unreachable");
         game
     }
+
     pub fn exchange_cards(
         &mut self,
         cards: [usize; NUMBER_REPLACEABLE_CARDS],
@@ -391,8 +393,12 @@ impl Game {
     }
 
     pub fn deal_cards(&mut self) -> Result<(), GameError> {
+        let mut rng = thread_rng();
+
         match &self.state {
-            GameState::ExchangeCards { commands } => {}
+            GameState::ExchangeCards { commands: _ } => {
+                self.players.shuffle(&mut rng);
+            }
             GameState::EndHand => {
                 if self.current_hand < self.hands {
                     self.current_hand += 1;
@@ -413,20 +419,13 @@ impl Game {
             !game.players.iter().any(|p| {
                 p.get_cards()
                     .iter()
-                    .filter_map(|c| {
-                        if let Some(c) = c {
-                            Some(c.get_type())
-                        } else {
-                            None
-                        }
-                    })
+                    .filter_map(|c| c.as_ref().map(|c| c.get_type()))
                     .filter(|t| !matches!(t, TypeCard::Heart))
                     .count()
                     == 0
             })
         }
-        fn deal(game: &mut Game) {
-            let mut rng = thread_rng();
+        fn deal(game: &mut Game, rng: &mut ThreadRng) {
             let mut deck_shuffled_positions = [0usize; DECK_SIZE];
             for (n, item) in deck_shuffled_positions
                 .iter_mut()
@@ -435,7 +434,7 @@ impl Game {
             {
                 *item = n;
             }
-            deck_shuffled_positions.shuffle(&mut rng);
+            deck_shuffled_positions.shuffle(rng);
             for (pos_player, player) in game.players.iter_mut().enumerate() {
                 let start_pos = pos_player * PLAYER_CARD_SIZE;
                 for (i, random_pos_in_deck) in deck_shuffled_positions
@@ -452,23 +451,21 @@ impl Game {
             }
         }
 
-        while !is_deal_valid(&self) {
-            deal(self);
+        while !is_deal_valid(self) {
+            deal(self, &mut rng);
         }
 
         for player in &mut self.players {
-            player.cards.sort_by(|c1, c2| {
-                return match (c1, c2) {
-                    (Some(c1), (Some(c2))) => c1.cmp(c2),
-                    _ => unreachable!(),
-                };
+            player.cards.sort_by(|c1, c2| match (c1, c2) {
+                (Some(c1), Some(c2)) => c1.cmp(c2),
+                _ => unreachable!(),
             });
         }
         Ok(())
     }
     pub fn play_bot(&mut self) -> Result<(), GameError> {
         if let GameState::PlayingHand {
-            stack,
+            stack: _,
             current_scores: _,
         } = &self.state
         {
@@ -476,7 +473,7 @@ impl Game {
                 o: &'a Option<(usize, &'a Card)>,
             ) -> Option<(usize, &'a Card)> {
                 o.as_ref().copied()
-            };
+            }
 
             let player = self.players.get(self.current_player_pos).unwrap();
 
@@ -494,9 +491,7 @@ impl Game {
                             let current_losing_card =
                                 &DECK.0[current_stack_state.current_losing_card_pos];
 
-                            let current_losing_card_type = current_losing_card.get_type();
                             let first_card_type = first_card.get_type();
-                            let card_type = card.get_type();
                             let min_card_type = min_card.get_type();
 
                             if min_card_type == first_card_type {
@@ -526,12 +521,12 @@ impl Game {
                 }
             }
 
-            let Some((min_idx, min_card)) = min_card else {
+            let Some((min_idx, _)) = min_card else {
                 unreachable!("should still not happen bro, bcos trust me. if it happens,
                               then probably deck not well shuffled")
             };
             self.play(min_idx)
-        } else if let GameState::ExchangeCards { commands } = &self.state {
+        } else if let GameState::ExchangeCards { commands: _ } = &self.state {
             let Some(player) = self.players.get(self.current_player_pos) else {unreachable!()};
             let mut exchange = [0; 3];
             for (i, c) in player.cards.iter().take(3).enumerate() {
@@ -548,7 +543,7 @@ impl Game {
         match &self.state {
             GameState::PlayingHand {
                 stack,
-                current_scores,
+                current_scores: _,
             } => {
                 let player = self.players.get(self.current_player_pos).unwrap();
                 if stack.iter().all(|s| s.is_some()) {
@@ -590,7 +585,7 @@ impl Game {
                         // cannot play Q club or heart if it's the first hand
 
                         if firs_played_card == &CARD_TO_START
-                            && (card_to_play_type == TypeCard::Heart
+                            && (card_to_play_type == &TypeCard::Heart
                                 || card_to_play == &QUEEN_OF_SPADE)
                         {
                             return Err(GameError::CannotStartWithQueenOrHeart);
@@ -600,10 +595,10 @@ impl Game {
                     // first to play
                     // unless player has no other choice
                     // check if heart and there's no heart used in deck
-                    if card_to_play_type == TypeCard::Heart
+                    if card_to_play_type == &TypeCard::Heart
                         && !self.back_in_deck.iter().any(|c| {
                             if let Some(c) = c {
-                                DECK.0[*c].get_type() == TypeCard::Heart
+                                DECK.0[*c].get_type() == &TypeCard::Heart
                             } else {
                                 false
                             }
@@ -611,14 +606,8 @@ impl Game {
                         && player
                             .get_cards()
                             .iter()
-                            .filter_map(|c| {
-                                if let Some(c) = c {
-                                    Some(c.get_type())
-                                } else {
-                                    None
-                                }
-                            })
-                            .any(|c| c != TypeCard::Heart)
+                            .filter_map(|c| c.as_ref().map(|c| c.get_type()))
+                            .any(|c| c != &TypeCard::Heart)
                     {
                         return Err(GameError::HeartNeverPlayedBefore);
                     }
@@ -634,8 +623,6 @@ impl Game {
         let GameState::PlayingHand { stack, current_scores } = &mut self.state else {
             unreachable!("already validated")};
         let player = self.players.get_mut(self.current_player_pos).unwrap();
-        let card_to_play = &DECK.0[card_to_play_idx];
-        let card_to_play_type = card_to_play.get_type();
 
         // we're done with the checks
         let Some(empty_slot) = stack.iter_mut().find(|s| s.is_none()) else {
@@ -703,7 +690,7 @@ impl Game {
     }
 
     fn get_current_stack_state(&self) -> Option<StackState> {
-        let (stack, current_scores) = match self.state {
+        let (stack, _) = match self.state {
             GameState::PlayingHand {
                 stack,
                 current_scores,
@@ -752,10 +739,8 @@ impl Game {
             } => {
                 // avoid allocating
                 print!("Player order:  ");
-                for s in stack {
-                    if let Some((pl_idx, _)) = s {
-                        print!("{} ", pl_idx + 1);
-                    }
+                for (pl_idx, _) in stack.iter().flatten() {
+                    print!("{} ", self.players[*pl_idx].id);
                 }
                 println!();
 
@@ -771,10 +756,8 @@ impl Game {
                 );
                 // avoid allocating
                 print!("Current Score: ");
-                for s in stack {
-                    if let Some((pl_idx, _)) = s {
-                        print!("{} ", current_scores[*pl_idx]);
-                    }
+                for (pl_idx, _) in stack.iter().flatten() {
+                    print!("{} ", current_scores[*pl_idx]);
                 }
                 println!();
                 for player in self.players.iter() {
@@ -815,13 +798,13 @@ pub enum GameError {
 
 #[cfg(test)]
 mod test {
-    use crate::game::{Card, TypeCard, CARD_TO_START, DECK, PLAYER_CARD_SIZE, PLAYER_NUMBER};
+    use crate::{Card, TypeCard, CARD_TO_START, PLAYER_CARD_SIZE};
 
     use super::{Game, GameState};
 
     #[test]
     pub fn new_game_test() {
-        let mut game = Game::new([1, 2, 3, 4], 1);
+        let game = Game::new([(1, true), (2, true), (3, true), (4, true)], 1);
         let first_player = game.players.get(game.current_player_pos).unwrap();
         assert!(
             first_player.get_cards().contains(&Some(&CARD_TO_START)),
@@ -847,7 +830,8 @@ mod test {
 
     #[test]
     pub fn exchange_cards_test() {
-        let mut game = Game::new([1, 2, 3, 4], 1);
+        let mut game = Game::new([(1, true), (2, true), (3, true), (4, true)], 1);
+
         let clone: Vec<[Option<usize>; PLAYER_CARD_SIZE]> =
             game.players.iter().map(|p| p.cards).collect();
         while matches!(&game.state, &GameState::ExchangeCards { commands: _ }) {
@@ -856,7 +840,7 @@ mod test {
             for (i, c) in player.cards.iter().take(3).enumerate() {
                 exchange[i] = c.unwrap();
             }
-            game.exchange_cards(exchange);
+            game.exchange_cards(exchange).unwrap();
         }
 
         assert_eq!(clone[0][0..3], game.players[1].cards[0..3]);
@@ -866,7 +850,7 @@ mod test {
     }
     #[test]
     pub fn play() {
-        let mut game = Game::new([1, 2, 3, 4], 1);
+        let mut game = Game::new([(1, true), (2, true), (3, true), (4, true)], 1);
         assert!(matches!(
             game.state,
             GameState::ExchangeCards { commands: _ }
@@ -874,27 +858,25 @@ mod test {
 
         loop {
             match game.state {
-                GameState::ExchangeCards { commands } => {
+                GameState::ExchangeCards { commands: _ } => {
                     game.play_bot().unwrap();
                 }
                 GameState::PlayingHand {
-                    stack,
-                    current_scores,
+                    stack: _,
+                    current_scores: _,
                 } => game.play_bot().unwrap(),
                 GameState::ComputeScore {
-                    stack,
-                    current_scores,
+                    stack: _,
+                    current_scores: _,
                 } => {
                     game.print_state();
                     game.compute_score().unwrap();
                 }
                 GameState::EndHand => {
                     game.print_state();
-                    game.deal_cards();
+                    game.deal_cards().unwrap();
                 }
                 GameState::End => {
-                    // TODO print final winners
-                    //
                     game.print_state();
                     break;
                 }
