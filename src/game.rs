@@ -670,12 +670,13 @@ impl Game {
         self.current_player_pos = current_stack_state.current_losing_player_pos;
         let GameState::ComputeScore { stack, current_scores } = &mut self.state else {
             unreachable!("shouldn't happen")};
-        if current_stack_state.score == MAX_SCORE {
+        if current_scores[self.current_player_pos] + current_stack_state.score == MAX_SCORE {
             for (idx, score) in current_scores.iter_mut().enumerate() {
                 if idx == self.current_player_pos {
-                    continue;
+                    *score = 0;
+                } else {
+                    *score = MAX_SCORE;
                 }
-                *score = MAX_SCORE;
             }
         } else {
             current_scores[self.current_player_pos] += current_stack_state.score;
@@ -893,6 +894,8 @@ mod test {
                 }
                 GameState::End => {
                     // TODO print final winners
+                    //
+                    game.print_state();
                     break;
                 }
             }
