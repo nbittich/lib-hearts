@@ -8,6 +8,7 @@ const NUMBER_REPLACEABLE_CARDS: usize = 3;
 const PLAYER_NUMBER: usize = 4;
 const CARD_TO_START: Card = Card::Number(2, TypeCard::Club, "🃒");
 const QUEEN_OF_SPADE: Card = Card::Queen(TypeCard::Spade, "🂭");
+const ACE_OF_HEARTS: Card = Card::Ace(TypeCard::Heart, "🂱");
 
 const MAX_SCORE: usize = 26;
 const GREATER: Option<Ordering> = Some(Ordering::Greater);
@@ -35,6 +36,16 @@ impl Display for Card {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let emoji = self.get_emoji();
         write!(f, "{emoji}")
+    }
+}
+
+impl Display for Player {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let card_emojis = self
+            .get_cards()
+            .map(|c| if let Some(c) = c { c.get_emoji() } else { "-" })
+            .join(" ");
+        write!(f, "Player {}: {}", self.id, card_emojis)
     }
 }
 
@@ -202,7 +213,7 @@ impl Deck {
             Card::Jack(TypeCard::Heart, "🂻"),
             Card::Queen(TypeCard::Heart, "🂽"),
             Card::King(TypeCard::Heart, "🂾"),
-            Card::Ace(TypeCard::Heart, "🂱"),
+            ACE_OF_HEARTS,
         ])
     }
 }
@@ -529,8 +540,22 @@ impl Game {
         } else if let GameState::ExchangeCards { commands: _ } = &self.state {
             let Some(player) = self.players.get(self.current_player_pos) else {unreachable!()};
             let mut exchange = [0; 3];
-            for (i, c) in player.cards.iter().take(3).enumerate() {
-                let Some(c) = c else {unreachable!()};
+            let mut player_cards = player.get_cards_and_pos_in_deck();
+
+            player_cards.sort_by(|c1, c2| match (c1, c2) {
+                (Some((_, c1)), Some((_, c2))) => {
+                    if c1 == &&ACE_OF_HEARTS || c2 == &&QUEEN_OF_SPADE {
+                        Ordering::Less
+                    } else if c1 == &&QUEEN_OF_SPADE {
+                        Ordering::Greater
+                    } else {
+                        let Some(ordering) =c1.partial_cmp(c2) else {unreachable!()};
+                        ordering
+                    }
+                }
+                _ => unreachable!(),
+            });
+            for (i, (c, _)) in player_cards.iter().rev().take(3).flatten().enumerate() {
                 exchange[i] = *c;
             }
             self.exchange_cards(exchange)
@@ -761,14 +786,14 @@ impl Game {
                 }
                 println!();
                 for player in self.players.iter() {
-                    let card_emojis = player
-                        .get_cards()
-                        .map(|c| if let Some(c) = c { c.get_emoji() } else { "-" })
-                        .join(" ");
-                    println!("Player {}: {}", player.id, card_emojis);
+                    println!("{player}");
                 }
             }
-
+            GameState::ExchangeCards { commands: _ } => {
+                for player in self.players.iter() {
+                    println!("{player}");
+                }
+            }
             GameState::EndHand => {
                 // avoid allocating
                 print!("Hand Score:  ");
@@ -779,8 +804,6 @@ impl Game {
             }
             _ => {}
         }
-
-        //println!("******************************************");
     }
 }
 

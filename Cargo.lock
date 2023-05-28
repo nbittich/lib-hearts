@@ -20,8 +20,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "harts"
-version = "0.1.0"
+name = "lib-hearts"
+version = "0.1.1"
 dependencies = [
  "rand",
 ]
