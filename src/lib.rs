@@ -2,15 +2,16 @@ use std::{cmp::Ordering, fmt::Display, mem::MaybeUninit, usize};
 
 use rand::prelude::*;
 
-const DECK_SIZE: usize = 52;
-const PLAYER_CARD_SIZE: usize = 13;
-const NUMBER_REPLACEABLE_CARDS: usize = 3;
-const PLAYER_NUMBER: usize = 4;
-const CARD_TO_START: Card = Card::Number(2, TypeCard::Club, "🃒");
-const QUEEN_OF_SPADE: Card = Card::Queen(TypeCard::Spade, "🂭");
-const ACE_OF_HEARTS: Card = Card::Ace(TypeCard::Heart, "🂱");
+pub const DECK_SIZE: usize = 52;
+pub const PLAYER_CARD_SIZE: usize = 13;
+pub const NUMBER_REPLACEABLE_CARDS: usize = 3;
+pub const PLAYER_NUMBER: usize = 4;
+pub const CARD_TO_START: Card = Card::Number(2, TypeCard::Club, "🃒");
+pub const QUEEN_OF_SPADE: Card = Card::Queen(TypeCard::Spade, "🂭");
+pub const ACE_OF_HEARTS: Card = Card::Ace(TypeCard::Heart, "🂱");
 
-const MAX_SCORE: usize = 26;
+pub const MAX_SCORE: usize = 26;
+
 const GREATER: Option<Ordering> = Some(Ordering::Greater);
 const LESS: Option<Ordering> = Some(Ordering::Less);
 const EQUAL: Option<Ordering> = Some(Ordering::Equal);
