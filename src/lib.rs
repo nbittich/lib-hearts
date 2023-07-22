@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, fmt::Display, mem::MaybeUninit, usize};
 
 use rand::prelude::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub const DECK_SIZE: usize = 52;
 pub const PLAYER_CARD_SIZE: usize = 13;
@@ -17,6 +17,8 @@ const GREATER: Option<Ordering> = Some(Ordering::Greater);
 const LESS: Option<Ordering> = Some(Ordering::Less);
 const EQUAL: Option<Ordering> = Some(Ordering::Equal);
 
+pub type PositionInDeck = usize;
+
 #[derive(Debug)]
 struct StackState {
     first_card_played_pos: usize,
@@ -25,7 +27,8 @@ struct StackState {
     score: usize,
 }
 
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, Serialize, Copy, Clone, Deserialize, PartialEq)]
+#[serde(rename_all = "UPPERCASE")]
 pub enum Card {
     Queen(TypeCard, &'static str),
     King(TypeCard, &'static str),
@@ -138,7 +141,7 @@ impl PartialOrd for Card {
         }
     }
 }
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, Serialize, Copy, Clone, Deserialize, PartialEq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TypeCard {
     Heart,   // coeur
@@ -263,7 +266,7 @@ impl Player {
     pub fn get_cards(&self) -> [Option<&Card>; 13] {
         self.cards.map(|c| c.map(|c| &DECK.0[c]))
     }
-    pub fn get_cards_and_pos_in_deck(&self) -> [Option<(usize, &Card)>; 13] {
+    pub fn get_cards_and_pos_in_deck(&self) -> [Option<(PositionInDeck, &Card)>; 13] {
         self.cards.map(|c| c.map(|c| (c, &DECK.0[c])))
     }
 
@@ -406,9 +409,9 @@ impl Game {
         }
     }
 
-    pub fn get_player_cards(&self, player_id: u64) -> [Option<&Card>; 13] {
+    pub fn get_player_cards(&self, player_id: u64) -> [Option<(PositionInDeck, &Card)>; 13] {
         let Some(player) = self.players.iter().find(|p| p.id == player_id) else {unreachable!("player doesn't exist")};
-        player.get_cards()
+        player.get_cards_and_pos_in_deck()
     }
 
     pub fn deal_cards(&mut self) -> Result<(), GameError> {
@@ -829,7 +832,7 @@ pub enum GameError {
 
 #[cfg(test)]
 mod test {
-    use crate::{Card, TypeCard, CARD_TO_START, PLAYER_CARD_SIZE};
+    use crate::{Card, TypeCard, CARD_TO_START, PLAYER_CARD_SIZE, QUEEN_OF_SPADE};
 
     use super::{Game, GameState};
 
@@ -913,5 +916,9 @@ mod test {
                 }
             }
         }
+    }
+    #[test]
+    fn test_serialize() {
+        println!("{}", serde_json::to_string_pretty(&QUEEN_OF_SPADE).unwrap());
     }
 }
