@@ -4,9 +4,10 @@ authors = ["Nordine Bittich"]
 description = "Basic Implementation of the hearts card game"
 keywords = ["cards"]
 repository = "https://github.com/nbittich/lib-hearts"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 readme = "README.md"
 license = "MIT"
 [dependencies]
 rand = "0.8.5"
+serde = { version = "1.0.174", features = ["derive"] }

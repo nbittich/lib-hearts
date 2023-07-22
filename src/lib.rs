@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, fmt::Display, mem::MaybeUninit, usize};
 
 use rand::prelude::*;
+use serde::Serialize;
 
 pub const DECK_SIZE: usize = 52;
 pub const PLAYER_CARD_SIZE: usize = 13;
@@ -24,7 +25,7 @@ struct StackState {
     score: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Serialize, PartialEq)]
 pub enum Card {
     Queen(TypeCard, &'static str),
     King(TypeCard, &'static str),
@@ -137,7 +138,8 @@ impl PartialOrd for Card {
         }
     }
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Serialize, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TypeCard {
     Heart,   // coeur
     Spade,   // pique
@@ -402,6 +404,11 @@ impl Game {
             }
             _ => Err(GameError::StateError),
         }
+    }
+
+    pub fn get_player_cards(&self, player_id: u64) -> [Option<&Card>; 13] {
+        let Some(player) = self.players.iter().find(|p| p.id == player_id) else {unreachable!("player doesn't exist")};
+        player.get_cards()
     }
 
     pub fn deal_cards(&mut self) -> Result<(), GameError> {
