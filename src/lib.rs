@@ -761,6 +761,10 @@ impl Game {
         })
     }
 
+    pub fn current_player_id(&self) -> Option<u64> {
+        self.players.get(self.current_player_pos).map(|p| p.id)
+    }
+
     pub fn print_state(&self) {
         println!("************* current state **************");
         println!(
