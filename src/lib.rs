@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, error::Error, fmt::Display, mem::MaybeUninit, usize};
+use std::{cmp::Ordering, error::Error, fmt::Display, usize};
 
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -226,7 +226,7 @@ impl Deck {
 
 const DECK: Deck = Deck::new();
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Player {
     id: u64,
     score: usize,
@@ -331,18 +331,10 @@ pub struct Game {
 
 impl Game {
     pub fn new(player_builders: [(u64, bool); PLAYER_NUMBER], hands: u8) -> Self {
-        let mut players: [MaybeUninit<Player>; PLAYER_NUMBER] =
-            unsafe { MaybeUninit::uninit().assume_init() };
-
-        for (pos_player, player) in players[..].iter_mut().enumerate() {
-            let (player_id, is_bot) = player_builders[pos_player];
+        let players = player_builders.map(|(player_id, is_bot)| {
             let player_cards: [Option<usize>; PLAYER_CARD_SIZE] = [None; PLAYER_CARD_SIZE];
-
-            player.write(Player::new(player_id, is_bot, player_cards));
-        }
-
-        let players: [Player; PLAYER_NUMBER] =
-            unsafe { std::mem::transmute::<_, [Player; PLAYER_NUMBER]>(players) };
+            Player::new(player_id, is_bot, player_cards)
+        });
 
         let mut game = Self {
             hands,
@@ -413,10 +405,44 @@ impl Game {
         let Some(player) = self.players.iter().find(|p| p.id == player_id) else {unreachable!("player doesn't exist")};
         player.get_cards_and_pos_in_deck()
     }
+    fn is_deal_valid(&self) -> bool {
+        !self.players.iter().any(|p| {
+            p.get_cards()
+                .iter()
+                .filter_map(|c| c.as_ref().map(|c| c.get_type()))
+                .filter(|t| !matches!(t, TypeCard::Heart))
+                .count()
+                == 0
+        })
+    }
+    fn deal(&mut self, rng: &mut ThreadRng) {
+        let mut deck_shuffled_positions = [0usize; DECK_SIZE];
+        for (n, item) in deck_shuffled_positions
+            .iter_mut()
+            .enumerate()
+            .take(DECK_SIZE)
+        {
+            *item = n;
+        }
+        deck_shuffled_positions.shuffle(rng);
+        for (pos_player, player) in self.players.iter_mut().enumerate() {
+            let start_pos = pos_player * PLAYER_CARD_SIZE;
+            for (i, random_pos_in_deck) in deck_shuffled_positions
+                .into_iter()
+                .skip(start_pos)
+                .take(PLAYER_CARD_SIZE)
+                .enumerate()
+            {
+                player.cards[i] = Some(random_pos_in_deck);
+                if DECK.0[random_pos_in_deck] == CARD_TO_START {
+                    self.current_player_pos = pos_player;
+                }
+            }
+        }
+    }
 
     pub fn deal_cards(&mut self) -> Result<(), GameError> {
         let mut rng = thread_rng();
-
         match &self.state {
             GameState::ExchangeCards { commands: _ } => {
                 self.players.shuffle(&mut rng);
@@ -437,44 +463,8 @@ impl Game {
             }
             _ => return Err(GameError::StateError),
         }
-        fn is_deal_valid(game: &Game) -> bool {
-            !game.players.iter().any(|p| {
-                p.get_cards()
-                    .iter()
-                    .filter_map(|c| c.as_ref().map(|c| c.get_type()))
-                    .filter(|t| !matches!(t, TypeCard::Heart))
-                    .count()
-                    == 0
-            })
-        }
-        fn deal(game: &mut Game, rng: &mut ThreadRng) {
-            let mut deck_shuffled_positions = [0usize; DECK_SIZE];
-            for (n, item) in deck_shuffled_positions
-                .iter_mut()
-                .enumerate()
-                .take(DECK_SIZE)
-            {
-                *item = n;
-            }
-            deck_shuffled_positions.shuffle(rng);
-            for (pos_player, player) in game.players.iter_mut().enumerate() {
-                let start_pos = pos_player * PLAYER_CARD_SIZE;
-                for (i, random_pos_in_deck) in deck_shuffled_positions
-                    .into_iter()
-                    .skip(start_pos)
-                    .take(PLAYER_CARD_SIZE)
-                    .enumerate()
-                {
-                    player.cards[i] = Some(random_pos_in_deck);
-                    if DECK.0[random_pos_in_deck] == CARD_TO_START {
-                        game.current_player_pos = pos_player;
-                    }
-                }
-            }
-        }
-
-        while !is_deal_valid(self) {
-            deal(self, &mut rng);
+        while !self.is_deal_valid() {
+            self.deal(&mut rng);
         }
 
         for player in &mut self.players {
@@ -763,6 +753,10 @@ impl Game {
 
     pub fn current_player_id(&self) -> Option<u64> {
         self.players.get(self.current_player_pos).map(|p| p.id)
+    }
+
+    pub fn player_ids_in_order(&self) -> [u64; PLAYER_NUMBER] {
+        self.players.map(|player| player.id)
     }
 
     pub fn print_state(&self) {
