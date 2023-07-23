@@ -822,7 +822,7 @@ impl Game {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize)]
 pub enum GameError {
     UnknownCard,
     ForbiddenMove,
