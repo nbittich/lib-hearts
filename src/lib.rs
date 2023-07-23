@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt::Display, mem::MaybeUninit, usize};
+use std::{cmp::Ordering, error::Error, fmt::Display, mem::MaybeUninit, usize};
 
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -833,6 +833,12 @@ pub enum GameError {
     CannotStartWithQueenOrHeart,
     StateError,
 }
+impl Display for GameError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+impl Error for GameError {}
 
 #[cfg(test)]
 mod test {
