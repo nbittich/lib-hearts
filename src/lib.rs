@@ -682,7 +682,7 @@ impl Game {
         let Some(current_stack_state) = self.get_current_stack_state() else {unreachable!()};
         self.current_player_pos = current_stack_state.current_losing_player_pos;
         let GameState::ComputeScore { stack, current_scores } = &mut self.state else {
-            unreachable!("shouldn't happen")};
+            return Err(GameError::StateError)};
         if current_scores[self.current_player_pos] + current_stack_state.score == MAX_SCORE {
             for (idx, score) in current_scores.iter_mut().enumerate() {
                 if idx == self.current_player_pos {
