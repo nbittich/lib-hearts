@@ -27,6 +27,12 @@ struct StackState {
     score: usize,
 }
 
+#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PlayerState {
+    pub player_id: u64,
+    pub score: usize,
+}
+
 #[derive(Debug, Serialize, Copy, Clone, Deserialize, PartialEq)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum Card {
@@ -757,6 +763,13 @@ impl Game {
 
     pub fn player_ids_in_order(&self) -> [u64; PLAYER_NUMBER] {
         self.players.map(|player| player.id)
+    }
+
+    pub fn player_score_by_id(&self) -> [PlayerState; PLAYER_NUMBER] {
+        self.players.map(|p| PlayerState {
+            player_id: p.id,
+            score: p.score,
+        })
     }
 
     pub fn print_state(&self) {
