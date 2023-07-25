@@ -27,7 +27,7 @@ struct StackState {
     score: usize,
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Serialize, Debug, Deserialize, PartialEq, Eq)]
 pub struct PlayerState {
     pub player_id: u64,
     pub score: usize,
