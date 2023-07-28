@@ -453,19 +453,10 @@ impl Game {
             GameState::ExchangeCards { commands: _ } => {
                 self.players.shuffle(&mut rng);
             }
-            GameState::EndHand => {
-                if self.current_hand < self.hands {
-                    self.current_hand += 1;
-                    for card_in_deck in self.back_in_deck.iter_mut() {
-                        *card_in_deck = None;
-                    }
-                    self.state = GameState::ExchangeCards {
-                        commands: [None; PLAYER_NUMBER],
-                    };
-                } else {
-                    self.state = GameState::End;
-                    return Ok(());
-                }
+            GameState::EndHand if self.current_hand < self.hands => {
+                self.state = GameState::ExchangeCards {
+                    commands: [None; PLAYER_NUMBER],
+                };
             }
             _ => return Err(GameError::StateError),
         }
@@ -706,7 +697,16 @@ impl Game {
                 let Some((pos_player, _)) = s else {unreachable!()};
                 self.players[pos_player].score += current_scores[pos_player];
             }
-            self.state = GameState::EndHand;
+
+            self.current_hand += 1;
+            for card_in_deck in self.back_in_deck.iter_mut() {
+                *card_in_deck = None;
+            }
+            if self.current_hand < self.hands {
+                self.state = GameState::EndHand;
+            } else {
+                self.state = GameState::End;
+            }
         } else {
             for s in stack.iter_mut() {
                 let Some(empty_slot) = self.back_in_deck.iter_mut()
@@ -816,7 +816,7 @@ impl Game {
                     println!("{player}");
                 }
             }
-            GameState::EndHand => {
+            GameState::EndHand | GameState::End => {
                 // avoid allocating
                 print!("Hand Score:  ");
                 for p in &self.players {
