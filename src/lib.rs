@@ -290,7 +290,7 @@ impl Player {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum GameState {
     ExchangeCards {
         commands: [Option<(usize, [usize; NUMBER_REPLACEABLE_CARDS])>; PLAYER_NUMBER],
@@ -325,7 +325,7 @@ impl From<&GameState> for &str {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Game {
     pub players: [Player; PLAYER_NUMBER],
     pub current_player_pos: usize,
