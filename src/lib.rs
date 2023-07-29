@@ -411,9 +411,15 @@ impl Game {
         }
     }
 
-    pub fn get_player_cards(&self, player_id: u64) -> [Option<(PositionInDeck, &Card)>; 13] {
-        let Some(player) = self.players.iter().find(|p| p.id == player_id) else {unreachable!("player doesn't exist")};
-        player.get_cards_and_pos_in_deck()
+    pub fn get_player_cards(
+        &self,
+        player_id: u64,
+    ) -> [Option<(PositionInDeck, &Card)>; PLAYER_CARD_SIZE] {
+        if let Some(player) = self.players.iter().find(|p| p.id == player_id) {
+            player.get_cards_and_pos_in_deck()
+        } else {
+            [None; PLAYER_CARD_SIZE]
+        }
     }
     fn is_deal_valid(&self) -> bool {
         !self.players.iter().any(|p| {
