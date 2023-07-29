@@ -19,6 +19,10 @@ const EQUAL: Option<Ordering> = Some(Ordering::Equal);
 
 pub type PositionInDeck = usize;
 
+pub fn get_card_by_idx(idx: usize) -> &'static Card {
+    &DECK.0[idx]
+}
+
 #[derive(Debug)]
 struct StackState {
     first_card_played_pos: usize,
@@ -270,10 +274,10 @@ impl Player {
     }
 
     pub fn get_cards(&self) -> [Option<&Card>; 13] {
-        self.cards.map(|c| c.map(|c| &DECK.0[c]))
+        self.cards.map(|c| c.map(get_card_by_idx))
     }
     pub fn get_cards_and_pos_in_deck(&self) -> [Option<(PositionInDeck, &Card)>; 13] {
-        self.cards.map(|c| c.map(|c| (c, &DECK.0[c])))
+        self.cards.map(|c| c.map(|c| (c, get_card_by_idx(c))))
     }
 
     pub fn has_card(&self, card_p: usize) -> bool {
@@ -496,9 +500,10 @@ impl Game {
                 if let Ok(idx) = self.validate_play(idx) {
                     if let Some((min_idx, min_card)) = &mut min_card {
                         if let Some(current_stack_state) = &current_stack_state {
-                            let first_card = &DECK.0[current_stack_state.first_card_played_pos];
+                            let first_card =
+                                get_card_by_idx(current_stack_state.first_card_played_pos);
                             let current_losing_card =
-                                &DECK.0[current_stack_state.current_losing_card_pos];
+                                get_card_by_idx(current_stack_state.current_losing_card_pos);
 
                             let first_card_type = first_card.get_type();
                             let min_card_type = min_card.get_type();
@@ -587,11 +592,11 @@ impl Game {
                 }) {
                     return Err(GameError::MustUseStartCard);
                 }
-                let card_to_play = &DECK.0[card_to_play_idx];
+                let card_to_play = get_card_by_idx(card_to_play_idx);
                 let card_to_play_type = card_to_play.get_type();
                 // not the first to play
                 if let Some(Some((_, card_idx))) = stack.get(0) {
-                    let firs_played_card = &DECK.0[*card_idx];
+                    let firs_played_card = get_card_by_idx(*card_idx);
                     let first_played_type_card = firs_played_card.get_type();
 
                     if card_to_play_type != first_played_type_card {
@@ -734,14 +739,14 @@ impl Game {
             _ => None,
         }?;
         let (first_player_pos, first_card_idx) = &stack[0]?;
-        let first_played_card = &DECK.0[*first_card_idx];
+        let first_played_card = get_card_by_idx(*first_card_idx);
         let first_played_type_card = first_played_card.get_type();
         let mut max_card = (first_player_pos, first_played_card, *first_card_idx);
         let mut score = first_played_card.get_value();
         for c in stack.iter().skip(1).filter(|c| c.is_some()) {
             let Some((next_player_pos, next_card_idx)) = c else {return None};
 
-            let next_played_card = &DECK.0[*next_card_idx];
+            let next_played_card = get_card_by_idx(*next_card_idx);
             let next_played_type_card = next_played_card.get_type();
 
             if next_played_type_card == first_played_type_card && max_card.1 < next_played_card {
@@ -795,7 +800,7 @@ impl Game {
                     "Current stack: {}",
                     stack
                         .map(|c| if let Some((_, c)) = c {
-                            DECK.0[c].get_emoji()
+                            get_card_by_idx(c).get_emoji()
                         } else {
                             "-"
                         })
