@@ -2,6 +2,7 @@ use std::{cmp::Ordering, error::Error, fmt::Display, usize};
 
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 pub const DECK_SIZE: usize = 52;
 pub const PLAYER_CARD_SIZE: usize = 13;
@@ -33,7 +34,7 @@ struct StackState {
 
 #[derive(Clone, Copy, Serialize, Debug, Deserialize, PartialEq, Eq)]
 pub struct PlayerState {
-    pub player_id: u64,
+    pub player_id: Uuid,
     pub score: usize,
 }
 
@@ -238,14 +239,14 @@ const DECK: Deck = Deck::new();
 
 #[derive(Copy, Clone, Debug)]
 pub struct Player {
-    id: u64,
+    id: Uuid,
     score: usize,
     cards: [Option<usize>; PLAYER_CARD_SIZE], // card position in the deck
     is_bot: bool,
 }
 
 impl Player {
-    pub fn new(id: u64, is_bot: bool, cards: [Option<usize>; PLAYER_CARD_SIZE]) -> Self {
+    pub fn new(id: Uuid, is_bot: bool, cards: [Option<usize>; PLAYER_CARD_SIZE]) -> Self {
         Self {
             id,
             score: 0,
@@ -286,7 +287,7 @@ impl Player {
     pub fn get_score(&self) -> usize {
         self.score
     }
-    pub fn get_id(&self) -> u64 {
+    pub fn get_id(&self) -> Uuid {
         self.id
     }
     pub fn is_bot(&self) -> bool {
@@ -340,7 +341,7 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(player_builders: [(u64, bool); PLAYER_NUMBER], hands: u8) -> Self {
+    pub fn new(player_builders: [(Uuid, bool); PLAYER_NUMBER], hands: u8) -> Self {
         let players = player_builders.map(|(player_id, is_bot)| {
             let player_cards: [Option<usize>; PLAYER_CARD_SIZE] = [None; PLAYER_CARD_SIZE];
             Player::new(player_id, is_bot, player_cards)
@@ -398,7 +399,7 @@ impl Game {
                         .enumerate()
                         .find(|(_, p)| p.get_cards().contains(&Some(&CARD_TO_START)))
                         .map(|(idx, _)| idx)
-                        .unwrap();
+                        .ok_or(GameError::StateError)?;
                     self.state = GameState::PlayingHand {
                         stack: [None; PLAYER_NUMBER],
                         current_scores: [0; PLAYER_NUMBER],
@@ -413,7 +414,7 @@ impl Game {
 
     pub fn get_player_cards(
         &self,
-        player_id: u64,
+        player_id: Uuid,
     ) -> [Option<(PositionInDeck, &Card)>; PLAYER_CARD_SIZE] {
         if let Some(player) = self.players.iter().find(|p| p.id == player_id) {
             player.get_cards_and_pos_in_deck()
@@ -768,11 +769,11 @@ impl Game {
         })
     }
 
-    pub fn current_player_id(&self) -> Option<u64> {
+    pub fn current_player_id(&self) -> Option<Uuid> {
         self.players.get(self.current_player_pos).map(|p| p.id)
     }
 
-    pub fn player_ids_in_order(&self) -> [u64; PLAYER_NUMBER] {
+    pub fn player_ids_in_order(&self) -> [Uuid; PLAYER_NUMBER] {
         self.players.map(|player| player.id)
     }
 
@@ -786,7 +787,7 @@ impl Game {
     pub fn print_state(&self) {
         println!("************* current state **************");
         println!(
-            "Current player: {}, State: {}",
+            "Current player: {}\nState: {}",
             self.players[self.current_player_pos].id,
             Into::<&str>::into(&self.state)
         );
@@ -796,9 +797,9 @@ impl Game {
                 current_scores,
             } => {
                 // avoid allocating
-                print!("Player order:  ");
+                println!("Player order:");
                 for (pl_idx, _) in stack.iter().flatten() {
-                    print!("{} ", self.players[*pl_idx].id);
+                    println!("\t{pl_idx}: {}", self.players[*pl_idx].id);
                 }
                 println!();
 
@@ -861,13 +862,23 @@ impl Error for GameError {}
 
 #[cfg(test)]
 mod test {
+    use uuid::Uuid;
+
     use crate::{Card, TypeCard, CARD_TO_START, PLAYER_CARD_SIZE, QUEEN_OF_SPADE};
 
     use super::{Game, GameState};
 
     #[test]
     pub fn new_game_test() {
-        let game = Game::new([(1, true), (2, true), (3, true), (4, true)], 1);
+        let game = Game::new(
+            [
+                (Uuid::new_v4(), true),
+                (Uuid::new_v4(), true),
+                (Uuid::new_v4(), true),
+                (Uuid::new_v4(), true),
+            ],
+            1,
+        );
         let first_player = game.players.get(game.current_player_pos).unwrap();
         assert!(
             first_player.get_cards().contains(&Some(&CARD_TO_START)),
@@ -893,7 +904,15 @@ mod test {
 
     #[test]
     pub fn exchange_cards_test() {
-        let mut game = Game::new([(1, true), (2, true), (3, true), (4, true)], 1);
+        let mut game = Game::new(
+            [
+                (Uuid::new_v4(), true),
+                (Uuid::new_v4(), true),
+                (Uuid::new_v4(), true),
+                (Uuid::new_v4(), true),
+            ],
+            1,
+        );
 
         let clone: Vec<[Option<usize>; PLAYER_CARD_SIZE]> =
             game.players.iter().map(|p| p.cards).collect();
@@ -913,7 +932,15 @@ mod test {
     }
     #[test]
     pub fn play() {
-        let mut game = Game::new([(1, true), (2, true), (3, true), (4, true)], 1);
+        let mut game = Game::new(
+            [
+                (Uuid::new_v4(), true),
+                (Uuid::new_v4(), true),
+                (Uuid::new_v4(), true),
+                (Uuid::new_v4(), true),
+            ],
+            1,
+        );
         assert!(matches!(
             game.state,
             GameState::ExchangeCards { commands: _ }
