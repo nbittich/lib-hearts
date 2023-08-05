@@ -772,6 +772,13 @@ impl Game {
     pub fn current_player_id(&self) -> Option<Uuid> {
         self.players.get(self.current_player_pos).map(|p| p.id)
     }
+    pub fn current_player_is_bot(&self) -> bool {
+        if let Some(current_player) = self.players.get(self.current_player_pos) {
+            current_player.is_bot()
+        } else {
+            false
+        }
+    }
 
     pub fn player_ids_in_order(&self) -> [Uuid; PLAYER_NUMBER] {
         self.players.map(|player| player.id)
