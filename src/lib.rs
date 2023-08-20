@@ -367,8 +367,14 @@ impl Game {
     ) -> Result<(), GameError> {
         match &mut self.state {
             GameState::ExchangeCards { commands } if commands.iter().any(|c| c.is_none()) => {
-                let next = commands.iter_mut().find(|c| c.is_none()).unwrap();
-                let player = self.players.get_mut(self.current_player_pos).unwrap();
+                let next = commands
+                    .iter_mut()
+                    .find(|c| c.is_none())
+                    .ok_or(GameError::StateError)?;
+                let player = self
+                    .players
+                    .get_mut(self.current_player_pos)
+                    .ok_or(GameError::StateError)?;
                 for card in &cards {
                     if !player.has_card(*card) {
                         return Err(GameError::ForbiddenMove);
