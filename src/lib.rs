@@ -291,7 +291,9 @@ impl Player {
                     ordering
                 }
             }
-            _ => unreachable!(),
+            (None, None) => Ordering::Equal,
+            (Some(_), None) => Ordering::Greater,
+            (None, Some(_)) => Ordering::Less,
         });
         cards
     }
