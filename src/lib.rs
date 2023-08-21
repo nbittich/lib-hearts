@@ -279,17 +279,18 @@ impl Player {
     }
     pub fn get_cards_and_pos_in_deck(&self) -> [Option<(PositionInDeck, &Card)>; 13] {
         let mut cards = self.cards.map(|c| c.map(|c| (c, get_card_by_idx(c))));
-        cards.sort_by(|l, r| match (l, r) {
-            (Some(l), Some(r)) => {
-                if let Some(ord) = l.1.partial_cmp(r.1) {
-                    ord
+        cards.sort_by(|c1, c2| match (c1, c2) {
+            (Some((_, c1)), Some((_, c2))) => {
+                if c1 == &&ACE_OF_HEARTS || c2 == &&QUEEN_OF_SPADE {
+                    Ordering::Less
+                } else if c1 == &&QUEEN_OF_SPADE {
+                    Ordering::Greater
                 } else {
-                    Ordering::Equal
+                    let Some(ordering) =c1.partial_cmp(c2) else {unreachable!()};
+                    ordering
                 }
             }
-            (Some(_), None) => Ordering::Greater,
-            (None, Some(_)) => Ordering::Less,
-            (None, None) => Ordering::Equal,
+            _ => unreachable!(),
         });
         cards
     }
@@ -571,19 +572,6 @@ impl Game {
             let mut exchange = [0; 3];
             let mut player_cards = player.get_cards_and_pos_in_deck();
 
-            player_cards.sort_by(|c1, c2| match (c1, c2) {
-                (Some((_, c1)), Some((_, c2))) => {
-                    if c1 == &&ACE_OF_HEARTS || c2 == &&QUEEN_OF_SPADE {
-                        Ordering::Less
-                    } else if c1 == &&QUEEN_OF_SPADE {
-                        Ordering::Greater
-                    } else {
-                        let Some(ordering) =c1.partial_cmp(c2) else {unreachable!()};
-                        ordering
-                    }
-                }
-                _ => unreachable!(),
-            });
             for (i, (c, _)) in player_cards.iter().rev().take(3).flatten().enumerate() {
                 exchange[i] = *c;
             }
