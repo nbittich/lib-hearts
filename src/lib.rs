@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, error::Error, fmt::Display, usize};
 
 use rand::prelude::*;
-use serde::{Deserialize, Serialize};
+use serde_derive::{Deserialize, Serialize};
 use uuid::Uuid;
 
 pub const DECK_SIZE: usize = 52;
