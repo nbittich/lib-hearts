@@ -278,7 +278,20 @@ impl Player {
         self.cards.map(|c| c.map(get_card_by_idx))
     }
     pub fn get_cards_and_pos_in_deck(&self) -> [Option<(PositionInDeck, &Card)>; 13] {
-        self.cards.map(|c| c.map(|c| (c, get_card_by_idx(c))))
+        let mut cards = self.cards.map(|c| c.map(|c| (c, get_card_by_idx(c))));
+        cards.sort_by(|l, r| match (l, r) {
+            (Some(l), Some(r)) => {
+                if let Some(ord) = l.1.partial_cmp(r.1) {
+                    ord
+                } else {
+                    Ordering::Equal
+                }
+            }
+            (Some(_), None) => Ordering::Greater,
+            (None, Some(_)) => Ordering::Less,
+            (None, None) => Ordering::Equal,
+        });
+        cards
     }
 
     pub fn has_card(&self, card_p: usize) -> bool {
