@@ -113,6 +113,7 @@ impl Card {
     }
 }
 impl PartialOrd for Card {
+    // FIXME this is shit
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match (self.get_type(), other.get_type()) {
             (TypeCard::Heart, TypeCard::Spade)
