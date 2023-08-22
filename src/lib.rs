@@ -280,21 +280,8 @@ impl Player {
     }
     pub fn get_cards_and_pos_in_deck(&self) -> [Option<(PositionInDeck, &Card)>; 13] {
         let mut cards = self.cards.map(|c| c.map(|c| (c, get_card_by_idx(c))));
-        cards.sort_by(|c1, c2| match (c1, c2) {
-            (Some((_, c1)), Some((_, c2))) => {
-                if c1 == &&ACE_OF_HEARTS || c2 == &&QUEEN_OF_SPADE {
-                    Ordering::Less
-                } else if c1 == &&QUEEN_OF_SPADE {
-                    Ordering::Greater
-                } else {
-                    let Some(ordering) =c1.partial_cmp(c2) else {unreachable!()};
-                    ordering
-                }
-            }
-            (None, None) => Ordering::Equal,
-            (Some(_), None) => Ordering::Greater,
-            (None, Some(_)) => Ordering::Less,
-        });
+        cards.sort_by(|c1, c2| c1.map(|c11| c11.0).cmp(&c2.map(|c22| c22.0))); // sort by their
+                                                                               // position in deck
         cards
     }
 
@@ -520,8 +507,22 @@ impl Game {
 
             let player = self.players.get(self.current_player_pos).unwrap();
 
-            let cards = player.get_cards_and_pos_in_deck();
-
+            let mut cards = player.get_cards_and_pos_in_deck();
+            cards.sort_by(|c1, c2| match (c1, c2) {
+                (Some((_, c1)), Some((_, c2))) => {
+                    if c1 == &&ACE_OF_HEARTS || c2 == &&QUEEN_OF_SPADE {
+                        Ordering::Less
+                    } else if c1 == &&QUEEN_OF_SPADE {
+                        Ordering::Greater
+                    } else {
+                        let Some(ordering) =c1.partial_cmp(c2) else {unreachable!()};
+                        ordering
+                    }
+                }
+                (None, None) => Ordering::Equal,
+                (Some(_), None) => Ordering::Greater,
+                (None, Some(_)) => Ordering::Less,
+            });
             let current_stack_state = self.get_current_stack_state();
 
             let mut min_card: Option<(usize, &Card)> = None;
@@ -573,7 +574,7 @@ impl Game {
         } else if let GameState::ExchangeCards { commands: _ } = &self.state {
             let Some(player) = self.players.get(self.current_player_pos) else {unreachable!()};
             let mut exchange = [0; 3];
-            let mut player_cards = player.get_cards_and_pos_in_deck();
+            let player_cards = player.get_cards_and_pos_in_deck();
 
             for (i, (c, _)) in player_cards.iter().rev().take(3).flatten().enumerate() {
                 exchange[i] = *c;
@@ -724,7 +725,7 @@ impl Game {
             for card_in_deck in self.back_in_deck.iter_mut() {
                 *card_in_deck = None;
             }
-            if self.current_hand < self.hands {
+            if self.current_hand <= self.hands {
                 self.state = GameState::EndHand;
             } else {
                 self.state = GameState::End;
@@ -799,6 +800,25 @@ impl Game {
             player_id: p.id,
             score: p.score,
         })
+    }
+    pub fn current_score_by_id(&self) -> [PlayerState; PLAYER_NUMBER] {
+        let mut player_scores = self.player_score_by_id();
+        match self.state {
+            GameState::ExchangeCards { commands: _ } | GameState::EndHand | GameState::End => {}
+            GameState::PlayingHand {
+                stack: _,
+                current_scores,
+            }
+            | GameState::ComputeScore {
+                stack: _,
+                current_scores,
+            } => {
+                for (idx, score) in current_scores.iter().enumerate() {
+                    player_scores[idx].score = *score;
+                }
+            }
+        }
+        player_scores
     }
 
     pub fn print_state(&self) {
