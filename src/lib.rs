@@ -474,7 +474,7 @@ impl Game {
             GameState::ExchangeCards { commands: _ } => {
                 self.players.shuffle(&mut rng);
             }
-            GameState::EndHand if self.current_hand < self.hands => {
+            GameState::EndHand if self.current_hand <= self.hands => {
                 self.state = GameState::ExchangeCards {
                     commands: [None; PLAYER_NUMBER],
                 };
