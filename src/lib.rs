@@ -725,7 +725,7 @@ impl Game {
         };
         current_scores[self.current_player_pos] += current_stack_state.score;
 
-        if current_scores[self.current_player_pos] + current_stack_state.score == MAX_SCORE {
+        if current_scores[self.current_player_pos] == MAX_SCORE {
             for (idx, score) in current_scores.iter_mut().enumerate() {
                 if idx == self.current_player_pos {
                     *score = 0;
@@ -733,8 +733,6 @@ impl Game {
                     *score = MAX_SCORE;
                 }
             }
-        } else {
-            current_scores[self.current_player_pos] += current_stack_state.score;
         }
 
         if self.back_in_deck.iter().filter(|s| s.is_some()).count() == DECK_SIZE - PLAYER_NUMBER {
