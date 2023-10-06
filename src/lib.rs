@@ -715,13 +715,16 @@ impl Game {
             unreachable!()
         };
         self.current_player_pos = current_stack_state.current_losing_player_pos;
+
         let GameState::ComputeScore {
-            stack,
-            current_scores,
+            ref mut stack,
+            ref mut current_scores,
         } = &mut self.state
         else {
             return Err(GameError::StateError);
         };
+        current_scores[self.current_player_pos] += current_stack_state.score;
+
         if current_scores[self.current_player_pos] + current_stack_state.score == MAX_SCORE {
             for (idx, score) in current_scores.iter_mut().enumerate() {
                 if idx == self.current_player_pos {
@@ -735,11 +738,8 @@ impl Game {
         }
 
         if self.back_in_deck.iter().filter(|s| s.is_some()).count() == DECK_SIZE - PLAYER_NUMBER {
-            for s in *stack {
-                let Some((pos_player, _)) = s else {
-                    unreachable!()
-                };
-                self.players[pos_player].score += current_scores[pos_player];
+            for (idx, p) in self.players.iter_mut().enumerate() {
+                p.score += current_scores[idx];
             }
 
             self.current_hand += 1;
