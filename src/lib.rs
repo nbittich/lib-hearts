@@ -515,7 +515,9 @@ impl Game {
                     } else if c1 == &&QUEEN_OF_SPADE {
                         Ordering::Greater
                     } else {
-                        let Some(ordering) =c1.partial_cmp(c2) else {unreachable!()};
+                        let Some(ordering) = c1.partial_cmp(c2) else {
+                            unreachable!()
+                        };
                         ordering
                     }
                 }
@@ -567,12 +569,16 @@ impl Game {
             }
 
             let Some((min_idx, _)) = min_card else {
-                unreachable!("should still not happen bro, bcos trust me. if it happens,
-                              then probably deck not well shuffled")
+                unreachable!(
+                    "should still not happen bro, bcos trust me. if it happens,
+                              then probably deck not well shuffled"
+                )
             };
             self.play(min_idx)
         } else if let GameState::ExchangeCards { commands: _ } = &self.state {
-            let Some(player) = self.players.get(self.current_player_pos) else {unreachable!()};
+            let Some(player) = self.players.get(self.current_player_pos) else {
+                unreachable!()
+            };
             let mut exchange = [0; 3];
             let player_cards = player.get_cards_and_pos_in_deck();
 
@@ -666,13 +672,19 @@ impl Game {
 
     pub fn play(&mut self, card_to_play_idx: usize) -> Result<(), GameError> {
         let card_to_play_idx = self.validate_play(card_to_play_idx)?;
-        let GameState::PlayingHand { stack, current_scores } = &mut self.state else {
-            unreachable!("already validated")};
+        let GameState::PlayingHand {
+            stack,
+            current_scores,
+        } = &mut self.state
+        else {
+            unreachable!("already validated")
+        };
         let player = self.players.get_mut(self.current_player_pos).unwrap();
 
         // we're done with the checks
         let Some(empty_slot) = stack.iter_mut().find(|s| s.is_none()) else {
-            return Err(GameError::ForbiddenMove)};
+            return Err(GameError::ForbiddenMove);
+        };
         *empty_slot = Some((self.current_player_pos, card_to_play_idx));
         // update current player position
         if self.current_player_pos == PLAYER_NUMBER - 1 {
@@ -699,10 +711,17 @@ impl Game {
         Ok(())
     }
     pub fn compute_score(&mut self) -> Result<(), GameError> {
-        let Some(current_stack_state) = self.get_current_stack_state() else {unreachable!()};
+        let Some(current_stack_state) = self.get_current_stack_state() else {
+            unreachable!()
+        };
         self.current_player_pos = current_stack_state.current_losing_player_pos;
-        let GameState::ComputeScore { stack, current_scores } = &mut self.state else {
-            return Err(GameError::StateError)};
+        let GameState::ComputeScore {
+            stack,
+            current_scores,
+        } = &mut self.state
+        else {
+            return Err(GameError::StateError);
+        };
         if current_scores[self.current_player_pos] + current_stack_state.score == MAX_SCORE {
             for (idx, score) in current_scores.iter_mut().enumerate() {
                 if idx == self.current_player_pos {
@@ -717,7 +736,9 @@ impl Game {
 
         if self.back_in_deck.iter().filter(|s| s.is_some()).count() == DECK_SIZE - PLAYER_NUMBER {
             for s in *stack {
-                let Some((pos_player, _)) = s else {unreachable!()};
+                let Some((pos_player, _)) = s else {
+                    unreachable!()
+                };
                 self.players[pos_player].score += current_scores[pos_player];
             }
 
@@ -732,8 +753,9 @@ impl Game {
             }
         } else {
             for s in stack.iter_mut() {
-                let Some(empty_slot) = self.back_in_deck.iter_mut()
-                    .find(|s| s.is_none()) else {unreachable!()};
+                let Some(empty_slot) = self.back_in_deck.iter_mut().find(|s| s.is_none()) else {
+                    unreachable!()
+                };
                 empty_slot.replace(s.take().map(|(_, c)| c).unwrap());
             }
             self.state = GameState::PlayingHand {
@@ -762,7 +784,9 @@ impl Game {
         let mut max_card = (first_player_pos, first_played_card, *first_card_idx);
         let mut score = first_played_card.get_value();
         for c in stack.iter().skip(1).filter(|c| c.is_some()) {
-            let Some((next_player_pos, next_card_idx)) = c else {return None};
+            let Some((next_player_pos, next_card_idx)) = c else {
+                return None;
+            };
 
             let next_played_card = get_card_by_idx(*next_card_idx);
             let next_played_type_card = next_played_card.get_type();
