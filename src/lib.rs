@@ -738,6 +738,7 @@ impl Game {
         if self.back_in_deck.iter().filter(|s| s.is_some()).count() == DECK_SIZE - PLAYER_NUMBER {
             for (idx, p) in self.players.iter_mut().enumerate() {
                 p.score += current_scores[idx];
+                current_scores[idx] = 0;
             }
 
             self.current_hand += 1;
