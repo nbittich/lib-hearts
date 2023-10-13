@@ -494,6 +494,34 @@ impl Game {
         Ok(())
     }
     pub fn play_bot(&mut self) -> Result<(), GameError> {
+        fn sort_bot(
+            c1: &Option<(PositionInDeck, &Card)>,
+            c2: &Option<(PositionInDeck, &Card)>,
+        ) -> Ordering {
+            match (c1, c2) {
+                (Some((_, c1)), Some((_, c2))) => {
+                    if *c2 == &QUEEN_OF_SPADE {
+                        Ordering::Less
+                    } else if *c1 == &QUEEN_OF_SPADE
+                        || (c1.get_type() != &TypeCard::Heart
+                            && !matches!(c1, Card::Number(_, _, _))
+                            && c2.get_type() == &TypeCard::Heart
+                            && matches!(c2, Card::Number(_, _, _)))
+                    {
+                        Ordering::Greater
+                    } else {
+                        let Some(ordering) = c1.partial_cmp(c2) else {
+                            unreachable!()
+                        };
+                        ordering
+                    }
+                }
+                (None, None) => Ordering::Equal,
+                (Some(_), None) => Ordering::Greater,
+                (None, Some(_)) => Ordering::Less,
+            }
+        }
+
         if let GameState::PlayingHand {
             stack: _,
             current_scores: _,
@@ -508,23 +536,7 @@ impl Game {
             let player = self.players.get(self.current_player_pos).unwrap();
 
             let mut cards = player.get_cards_and_pos_in_deck();
-            cards.sort_by(|c1, c2| match (c1, c2) {
-                (Some((_, c1)), Some((_, c2))) => {
-                    if c1 == &&ACE_OF_HEARTS || c2 == &&QUEEN_OF_SPADE {
-                        Ordering::Less
-                    } else if c1 == &&QUEEN_OF_SPADE {
-                        Ordering::Greater
-                    } else {
-                        let Some(ordering) = c1.partial_cmp(c2) else {
-                            unreachable!()
-                        };
-                        ordering
-                    }
-                }
-                (None, None) => Ordering::Equal,
-                (Some(_), None) => Ordering::Greater,
-                (None, Some(_)) => Ordering::Less,
-            });
+            cards.sort_by(sort_bot);
             let current_stack_state = self.get_current_stack_state();
 
             let mut min_card: Option<(usize, &Card)> = None;
@@ -580,8 +592,9 @@ impl Game {
                 unreachable!()
             };
             let mut exchange = [0; 3];
-            let player_cards = player.get_cards_and_pos_in_deck();
+            let mut player_cards = player.get_cards_and_pos_in_deck();
 
+            player_cards.sort_by(sort_bot);
             for (i, (c, _)) in player_cards.iter().rev().take(3).flatten().enumerate() {
                 exchange[i] = *c;
             }
