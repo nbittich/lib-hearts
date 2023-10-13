@@ -593,12 +593,35 @@ impl Game {
             let Some(player) = self.players.get(self.current_player_pos) else {
                 unreachable!()
             };
-            let mut exchange = [0; 3];
+            const FILLER_VALUE: usize = 9999;
+            let mut exchange = [FILLER_VALUE; 3]; // we put an impossible number here
             let mut player_cards = player.get_cards_and_pos_in_deck();
 
-            //player_cards.sort_by(sort_bot);
-            for (i, (c, _)) in player_cards.iter().rev().take(3).flatten().enumerate() {
-                exchange[i] = *c;
+            let only_big_cards_filled = player_cards
+                .iter()
+                .flatten()
+                .filter_map(|(p, c)| {
+                    if !matches!(c, Card::Number(_, _, _)) {
+                        Some(*p)
+                    } else {
+                        None
+                    }
+                })
+                .choose_multiple_fill(&mut rand::thread_rng(), &mut exchange);
+            if only_big_cards_filled < 3 {
+                player_cards.shuffle(&mut rand::thread_rng());
+                let filtered_cards = player_cards
+                    .iter()
+                    .take(3 - only_big_cards_filled)
+                    .flatten()
+                    .filter(|(p, _)| !exchange.iter().any(|m| p == m))
+                    .collect::<Vec<_>>();
+                for (c, _) in filtered_cards.iter() {
+                    let Some(empty_slot) = exchange.iter_mut().find(|c| *c == &FILLER_VALUE) else {
+                        unreachable!("bug!!!")
+                    };
+                    *empty_slot = *c;
+                }
             }
             self.exchange_cards(exchange)
         } else {
