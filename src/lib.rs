@@ -502,7 +502,7 @@ impl Game {
         ) -> Ordering {
             match (c1, c2) {
                 (Some((_, c1)), Some((_, c2))) => {
-                    if *c2 == &QUEEN_OF_SPADE {
+                    if *c2 == &ACE_OF_HEARTS || *c2 == &QUEEN_OF_SPADE {
                         Ordering::Less
                     } else if *c1 == &QUEEN_OF_SPADE
                         || (c1.get_type() != &TypeCard::Heart
@@ -596,7 +596,7 @@ impl Game {
             let mut exchange = [0; 3];
             let mut player_cards = player.get_cards_and_pos_in_deck();
 
-            player_cards.sort_by(sort_bot);
+            //player_cards.sort_by(sort_bot);
             for (i, (c, _)) in player_cards.iter().rev().take(3).flatten().enumerate() {
                 exchange[i] = *c;
             }
