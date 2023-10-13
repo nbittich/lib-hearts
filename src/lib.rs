@@ -342,6 +342,7 @@ pub struct Game {
     back_in_deck: [Option<usize>; DECK_SIZE],
     pub state: GameState,
     pub hands: u8,
+    pub perfect_game: bool,
 }
 
 impl Game {
@@ -360,6 +361,7 @@ impl Game {
             },
             back_in_deck: [None; DECK_SIZE],
             current_player_pos: 0,
+            perfect_game: false,
         };
         game.deal_cards().expect("should be unreachable");
         game
@@ -738,7 +740,7 @@ impl Game {
         };
         current_scores[self.current_player_pos] += current_stack_state.score;
 
-        if current_scores[self.current_player_pos] == MAX_SCORE {
+        if current_scores[self.current_player_pos] == MAX_SCORE && !self.perfect_game {
             for (idx, score) in current_scores.iter_mut().enumerate() {
                 if idx == self.current_player_pos {
                     *score = 0;
@@ -746,6 +748,7 @@ impl Game {
                     *score = MAX_SCORE;
                 }
             }
+            self.perfect_game = true;
         }
 
         if self.back_in_deck.iter().filter(|s| s.is_some()).count() == DECK_SIZE - PLAYER_NUMBER {
@@ -754,6 +757,7 @@ impl Game {
                 current_scores[idx] = 0;
             }
 
+            self.perfect_game = false;
             self.current_hand += 1;
             for card_in_deck in self.back_in_deck.iter_mut() {
                 *card_in_deck = None;
