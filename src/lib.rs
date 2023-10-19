@@ -388,10 +388,10 @@ impl Game {
                     player.remove_card(*card);
                 }
                 *next = Some((self.current_player_pos, cards));
-                if self.current_player_pos == PLAYER_NUMBER - 1 {
-                    self.current_player_pos = 0;
+                if self.current_player_pos == 0 {
+                    self.current_player_pos = PLAYER_NUMBER - 1;
                 } else {
-                    self.current_player_pos += 1;
+                    self.current_player_pos -= 1;
                 }
                 if commands.iter().all(|c| c.is_some()) {
                     for command in commands {
@@ -725,10 +725,10 @@ impl Game {
         };
         *empty_slot = Some((self.current_player_pos, card_to_play_idx));
         // update current player position
-        if self.current_player_pos == PLAYER_NUMBER - 1 {
-            self.current_player_pos = 0;
+        if self.current_player_pos == 0 {
+            self.current_player_pos = PLAYER_NUMBER - 1;
         } else {
-            self.current_player_pos += 1;
+            self.current_player_pos -= 1;
         }
         // remove card from player
         if let Some(card) = player
