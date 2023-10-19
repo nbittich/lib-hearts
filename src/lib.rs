@@ -843,11 +843,6 @@ impl Game {
         })
     }
 
-    pub fn is_current_player_bot(&self) -> Option<bool> {
-        self.players
-            .get(self.current_player_pos)
-            .map(|p| p.is_bot())
-    }
     pub fn current_player_id(&self) -> Option<Uuid> {
         self.players.get(self.current_player_pos).map(|p| p.id)
     }
