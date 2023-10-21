@@ -590,7 +590,7 @@ impl Game {
             };
             self.play(min_idx)
         } else if let GameState::ExchangeCards { commands: _ } = &self.state {
-            let Some(player) = self.players.get(self.current_player_pos) else {
+            let Some(ref player) = self.players.get(self.current_player_pos) else {
                 unreachable!()
             };
             const FILLER_VALUE: usize = 9999;
@@ -923,9 +923,12 @@ impl Game {
                     println!("{player}");
                 }
             }
-            GameState::ExchangeCards { commands: _ } => {
+            GameState::ExchangeCards { commands } => {
                 for player in self.players.iter() {
                     println!("{player}");
+                }
+                for (p, c) in commands.iter().flatten() {
+                    println!("Command: player: {p}, replace: {c:?}");
                 }
             }
             GameState::EndHand | GameState::End => {
