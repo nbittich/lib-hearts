@@ -612,9 +612,9 @@ impl Game {
                 player_cards.shuffle(&mut rand::thread_rng());
                 let filtered_cards = player_cards
                     .iter()
-                    .take(3 - only_big_cards_filled)
                     .flatten()
                     .filter(|(p, _)| !exchange.iter().any(|m| p == m))
+                    .take(3 - only_big_cards_filled)
                     .collect::<Vec<_>>();
                 for (c, _) in filtered_cards.iter() {
                     let Some(empty_slot) = exchange.iter_mut().find(|c| *c == &FILLER_VALUE) else {
