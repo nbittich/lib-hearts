@@ -441,16 +441,12 @@ impl Game {
                 .filter_map(|c| c.as_ref().map(|c| c.get_type()))
                 .filter(|t| !matches!(t, TypeCard::Heart))
                 .count()
-                == 0
+                < 3 // we want at least three kind of cards for each player
         })
     }
     fn deal(&mut self, rng: &mut ThreadRng) {
         let mut deck_shuffled_positions = [0usize; DECK_SIZE];
-        for (n, item) in deck_shuffled_positions
-            .iter_mut()
-            .enumerate()
-            .take(DECK_SIZE)
-        {
+        for (n, item) in deck_shuffled_positions.iter_mut().enumerate() {
             *item = n;
         }
         deck_shuffled_positions.shuffle(rng);
@@ -487,7 +483,7 @@ impl Game {
             self.deal(&mut rng);
         }
 
-        for player in &mut self.players {
+        for player in self.players.iter_mut() {
             player.cards.sort_by(|c1, c2| match (c1, c2) {
                 (Some(c1), Some(c2)) => c1.cmp(c2),
                 _ => unreachable!(),
