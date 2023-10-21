@@ -928,7 +928,7 @@ impl Game {
                     println!("{player}");
                 }
                 for (p, c) in commands.iter().flatten() {
-                    println!("Command: player: {p}, replace: {c:?}");
+                    println!("Command: player: {p}, replace: {:?}", c.map(|x| DECK.0[x]));
                 }
             }
             GameState::EndHand | GameState::End => {
