@@ -11,7 +11,7 @@ license = "MIT"
 [dependencies]
 rand = "0.8.5"
 serde = "1.0.189"
-serde-big-array-options = "0.1.0"
+serde-big-array-options = "0.1.1"
 serde_derive = "1.0.189"
 uuid = { version = "1.5.0", features = ["serde", "v4"] }
 [dev-dependencies]

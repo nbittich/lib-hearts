@@ -114,9 +114,9 @@ dependencies = [
 
 [[package]]
 name = "serde-big-array-options"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc2727af7a53c2f837dec27ec5fb5a555ae3af1d78dfce6f9c1922543a2f9805"
+checksum = "8b334f1a48619ed2f9f798e3d2832e2769b76beb6d086f29dedc6b1454072513"
 dependencies = [
  "serde",
 ]
