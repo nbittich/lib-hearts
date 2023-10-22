@@ -3,7 +3,6 @@ use std::{cmp::Ordering, error::Error, fmt::Display, usize};
 use rand::prelude::*;
 use serde_derive::{Deserialize, Serialize};
 use uuid::Uuid;
-
 pub const DECK_SIZE: usize = 52;
 pub const PLAYER_CARD_SIZE: usize = 13;
 pub const NUMBER_REPLACEABLE_CARDS: usize = 3;
@@ -238,7 +237,7 @@ impl Deck {
 
 const DECK: Deck = Deck::new();
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct Player {
     id: Uuid,
     score: usize,
@@ -299,7 +298,7 @@ impl Player {
     }
 }
 
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone, Serialize, Deserialize)]
 pub enum GameState {
     ExchangeCards {
         commands: [Option<(usize, [usize; NUMBER_REPLACEABLE_CARDS])>; PLAYER_NUMBER],
@@ -334,12 +333,13 @@ impl From<&GameState> for &str {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Game {
     pub players: [Player; PLAYER_NUMBER],
     pub current_player_pos: usize,
     pub current_hand: u8,
-    back_in_deck: [Option<usize>; DECK_SIZE],
+    #[serde(with = "serde_big_array_options")]
+    pub back_in_deck: [Option<usize>; DECK_SIZE],
     pub state: GameState,
     pub hands: u8,
     pub perfect_game: bool,
