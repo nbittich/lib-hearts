@@ -586,7 +586,7 @@ impl Game {
             };
             self.play(min_idx)
         } else if let GameState::ExchangeCards { commands: _ } = &self.state {
-            let Some(ref player) = self.players.get(self.current_player_pos) else {
+            let Some(player) = self.players.get(self.current_player_pos) else {
                 unreachable!()
             };
             const FILLER_VALUE: usize = 9999;
